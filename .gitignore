@@ -1,0 +1,29 @@
+# Node
+node_modules/
+
+# Build
+.next/
+dist/
+
+# Logs
+*.log
+
+# Env
+.env
+.env.local
+
+# Coverage
+coverage/
+
+# Prisma
+prisma/dev.db
+
+# VS Code
+.vscode/settings.json
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Docker
+postgres-data/
