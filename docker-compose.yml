@@ -21,9 +21,34 @@ services:
     networks:
       - reservago_network
 
+  pgadmin:
+    image: dpage/pgadmin4:latest
+
+    container_name: reservago_pgadmin
+
+    restart: unless-stopped
+
+    environment:
+      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_DEFAULT_EMAIL}
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_DEFAULT_PASSWORD}
+
+    ports:
+      - "5050:80"
+
+    depends_on:
+      - postgres
+
+    volumes:
+      - reservago_pgadmin_data:/var/lib/pgadmin
+
+    networks:
+      - reservago_network
+
 volumes:
 
   reservago_postgres_data:
+
+  reservago_pgadmin_data:
 
 networks:
 
