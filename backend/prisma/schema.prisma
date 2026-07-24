@@ -1,13 +1,106 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Get a free hosted Postgres database in seconds: `npx create-db`
-
 generator client {
-  provider = "prisma-client"
-  output   = "../generated/prisma"
+  provider = "prisma-client-js"
 }
 
 datasource db {
   provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum RolUsuario {
+  ADMIN
+  PROPIETARIO
+  CLIENTE
+}
+
+model Usuario {
+  id          Int         @id @default(autoincrement())
+  nombre      String
+  apellido    String
+  correo      String      @unique
+  telefono    String      @unique
+  password    String
+  whatsapp    String?
+  rol         RolUsuario  @default(CLIENTE)
+  activo      Boolean     @default(true)
+
+  propiedades Propiedad[]
+
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+}
+
+model Departamento {
+  id          Int          @id @default(autoincrement())
+  nombre      String       @unique
+  activo      Boolean      @default(true)
+
+  municipios  Municipio[]
+
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+}
+
+model Municipio {
+  id               Int            @id @default(autoincrement())
+  nombre           String
+  activo           Boolean        @default(true)
+
+  departamentoId   Int
+  departamento     Departamento   @relation(fields: [departamentoId], references: [id])
+
+  propiedades      Propiedad[]
+
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+
+  @@unique([nombre, departamentoId])
+}
+
+model TipoPropiedad {
+  id           Int           @id @default(autoincrement())
+  nombre       String        @unique
+  descripcion  String?
+  activo       Boolean       @default(true)
+
+  propiedades  Propiedad[]
+
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+}
+
+model Propiedad {
+  id                Int             @id @default(autoincrement())
+
+  nombre            String
+  descripcion       String          @db.Text
+
+  direccion         String?
+
+  precioNoche       Decimal         @db.Decimal(10, 2)
+
+  capacidad         Int
+  habitaciones      Int
+  banos             Int
+
+  aceptaMascotas    Boolean         @default(false)
+  piscina           Boolean         @default(false)
+  jacuzzi           Boolean         @default(false)
+  wifi              Boolean         @default(false)
+  parqueadero       Boolean         @default(false)
+  asador            Boolean         @default(false)
+
+  estado            Boolean         @default(true)
+
+  propietarioId     Int
+  propietario       Usuario         @relation(fields: [propietarioId], references: [id])
+
+  municipioId       Int
+  municipio         Municipio       @relation(fields: [municipioId], references: [id])
+
+  tipoPropiedadId   Int
+  tipoPropiedad     TipoPropiedad   @relation(fields: [tipoPropiedadId], references: [id])
+
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
 }
