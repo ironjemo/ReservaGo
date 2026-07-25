@@ -10,14 +10,7 @@ export class UsersService {
 
   create(createUserDto: CreateUserDto) {
   return this.prisma.usuario.create({
-    data: {
-      nombre: createUserDto.nombre,
-      apellido: createUserDto.apellido,
-      correo: createUserDto.correo,
-      telefono: createUserDto.telefono,
-      password: createUserDto.password,
-      whatsapp: createUserDto.whatsapp,
-    },
+    data: createUserDto,
   });
 }
 

@@ -5,4 +5,5 @@ export class CreateUserDto {
   telefono!: string;
   password!: string;
   whatsapp?: string;
+  rol?: 'ADMIN' | 'PROPIETARIO' | 'CLIENTE';
 }
