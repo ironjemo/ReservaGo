@@ -87,16 +87,6 @@ export class ReservationsService {
      * ------------------------------------------------------------
      * 5. Verificar que NO exista otra reserva
      * para la misma propiedad en las fechas solicitadas.
-     *
-     * Una reserva se cruza cuando:
-     *
-     * Reserva existente:
-     * |---------|
-     *
-     * Nueva reserva:
-     *      |---------|
-     *
-     * o cualquier otra superposición.
      * ------------------------------------------------------------
      */
     const reservaExistente = await this.prisma.reserva.findFirst({
@@ -125,11 +115,58 @@ export class ReservationsService {
 
     /**
      * ------------------------------------------------------------
-     * 6. Crear la reserva.
+     * 6. Calcular automáticamente el valor total.
+     * ------------------------------------------------------------
+     */
+
+    // Convertimos las fechas.
+    const fechaEntrada = new Date(createReservationDto.fechaEntrada);
+    const fechaSalida = new Date(createReservationDto.fechaSalida);
+
+    // Diferencia en milisegundos.
+    const diferenciaTiempo =
+      fechaSalida.getTime() - fechaEntrada.getTime();
+
+    // Cantidad de noches.
+    const cantidadNoches = Math.ceil(
+      diferenciaTiempo / (1000 * 60 * 60 * 24),
+    );
+
+    /**
+     * Validar que exista al menos una noche.
+     */
+    if (cantidadNoches <= 0) {
+      throw new BadRequestException(
+        'La fecha de salida debe ser posterior a la fecha de entrada.',
+      );
+    }
+
+    /**
+     * Precio por noche.
+     */
+    const precioNoche = Number(propiedad.precioNoche);
+
+    /**
+     * Valor total calculado automáticamente.
+     */
+    const valorTotal = precioNoche * cantidadNoches;
+
+    /**
+     * ------------------------------------------------------------
+     * 7. Crear la reserva.
      * ------------------------------------------------------------
      */
     return this.prisma.reserva.create({
-      data: createReservationDto,
+      data: {
+        fechaEntrada: createReservationDto.fechaEntrada,
+        fechaSalida: createReservationDto.fechaSalida,
+        cantidadPersonas: createReservationDto.cantidadPersonas,
+        estado: createReservationDto.estado,
+        usuarioId: createReservationDto.usuarioId,
+        propiedadId: createReservationDto.propiedadId,
+        valorTotal: valorTotal,
+      },
+
       include: {
         usuario: true,
         propiedad: true,
