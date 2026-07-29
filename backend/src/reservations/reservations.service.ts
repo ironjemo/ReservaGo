@@ -10,7 +10,7 @@ import { UpdateReservationDto } from './dto/update-reservation.dto';
 
 @Injectable()
 export class ReservationsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly prisma: PrismaService) { }
 
   /**
    * ============================================================
@@ -85,6 +85,20 @@ export class ReservationsService {
 
     /**
      * ------------------------------------------------------------
+     * 4.1 Validar la capacidad máxima de la propiedad.
+     * ------------------------------------------------------------
+     */
+    if (
+      createReservationDto.cantidadPersonas >
+      propiedad.capacidad
+    ) {
+      throw new BadRequestException(
+        `La propiedad admite máximo ${propiedad.capacidad} personas.`,
+      );
+    }
+
+    /**
+     * ------------------------------------------------------------
      * 5. Verificar que NO exista otra reserva
      * para la misma propiedad en las fechas solicitadas.
      * ------------------------------------------------------------
@@ -115,19 +129,35 @@ export class ReservationsService {
 
     /**
      * ------------------------------------------------------------
-     * 6. Calcular automáticamente el valor total.
+     * 6. Validar que la fecha de entrada
+     * no sea anterior a la fecha actual.
      * ------------------------------------------------------------
      */
-
-    // Convertimos las fechas.
     const fechaEntrada = new Date(createReservationDto.fechaEntrada);
     const fechaSalida = new Date(createReservationDto.fechaSalida);
 
-    // Diferencia en milisegundos.
+    // Fecha actual sin hora para comparar únicamente el día.
+    const hoy = new Date();
+    hoy.setHours(0, 0, 0, 0);
+
+    // Fecha de entrada sin hora.
+    fechaEntrada.setHours(0, 0, 0, 0);
+
+    if (fechaEntrada < hoy) {
+      throw new BadRequestException(
+        'La fecha de entrada no puede ser anterior a la fecha actual.',
+      );
+    }
+
+    /**
+     * ------------------------------------------------------------
+     * 7. Calcular automáticamente el valor total.
+     * ------------------------------------------------------------
+     */
+
     const diferenciaTiempo =
       fechaSalida.getTime() - fechaEntrada.getTime();
 
-    // Cantidad de noches.
     const cantidadNoches = Math.ceil(
       diferenciaTiempo / (1000 * 60 * 60 * 24),
     );
@@ -138,6 +168,19 @@ export class ReservationsService {
     if (cantidadNoches <= 0) {
       throw new BadRequestException(
         'La fecha de salida debe ser posterior a la fecha de entrada.',
+      );
+    }
+
+    /**
+ * ------------------------------------------------------------
+ * 7.1 Validar la duración máxima de la reserva.
+ * ------------------------------------------------------------
+ *
+ * No permitimos reservas superiores a 30 noches.
+ */
+    if (cantidadNoches > 30) {
+      throw new BadRequestException(
+        'La estancia máxima permitida es de 30 noches.',
       );
     }
 
@@ -153,7 +196,7 @@ export class ReservationsService {
 
     /**
      * ------------------------------------------------------------
-     * 7. Crear la reserva.
+     * 8. Crear la reserva.
      * ------------------------------------------------------------
      */
     return this.prisma.reserva.create({
@@ -164,7 +207,7 @@ export class ReservationsService {
         estado: createReservationDto.estado,
         usuarioId: createReservationDto.usuarioId,
         propiedadId: createReservationDto.propiedadId,
-        valorTotal: valorTotal,
+        valorTotal,
       },
 
       include: {
