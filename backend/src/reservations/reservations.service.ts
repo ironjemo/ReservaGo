@@ -10,7 +10,7 @@ import { UpdateReservationDto } from './dto/update-reservation.dto';
 
 @Injectable()
 export class ReservationsService {
-  constructor(private readonly prisma: PrismaService) { }
+  constructor(private readonly prisma: PrismaService) {}
 
   /**
    * ============================================================
@@ -30,10 +30,6 @@ export class ReservationsService {
       },
     });
 
-    /**
-     * Si el usuario no existe,
-     * detenemos el proceso.
-     */
     if (!usuario) {
       throw new NotFoundException(
         'El usuario no existe.',
@@ -62,10 +58,6 @@ export class ReservationsService {
       },
     });
 
-    /**
-     * Si la propiedad no existe,
-     * cancelamos la creación de la reserva.
-     */
     if (!propiedad) {
       throw new NotFoundException(
         'La propiedad no existe.',
@@ -85,7 +77,30 @@ export class ReservationsService {
 
     /**
      * ------------------------------------------------------------
-     * 4.1 Validar la capacidad máxima de la propiedad.
+     * 4.1 Validar que el propietario no reserve
+     * su propia propiedad.
+     * ------------------------------------------------------------
+     */
+    if (usuario.id === propiedad.propietarioId) {
+      throw new BadRequestException(
+        'El propietario no puede reservar su propia propiedad.',
+      );
+    }
+
+    /**
+     * ------------------------------------------------------------
+     * 4.2 Validar cantidad de personas.
+     * ------------------------------------------------------------
+     */
+    if (createReservationDto.cantidadPersonas <= 0) {
+      throw new BadRequestException(
+        'La cantidad de personas debe ser mayor que cero.',
+      );
+    }
+
+    /**
+     * ------------------------------------------------------------
+     * 4.3 Validar capacidad máxima.
      * ------------------------------------------------------------
      */
     if (
@@ -99,8 +114,7 @@ export class ReservationsService {
 
     /**
      * ------------------------------------------------------------
-     * 5. Verificar que NO exista otra reserva
-     * para la misma propiedad en las fechas solicitadas.
+     * 5. Validar reservas cruzadas.
      * ------------------------------------------------------------
      */
     const reservaExistente = await this.prisma.reserva.findFirst({
@@ -117,10 +131,6 @@ export class ReservationsService {
       },
     });
 
-    /**
-     * Si ya existe una reserva en esas fechas,
-     * detenemos el proceso.
-     */
     if (reservaExistente) {
       throw new BadRequestException(
         'La propiedad ya se encuentra reservada para esas fechas.',
@@ -129,18 +139,15 @@ export class ReservationsService {
 
     /**
      * ------------------------------------------------------------
-     * 6. Validar que la fecha de entrada
-     * no sea anterior a la fecha actual.
+     * 6. Validar fechas.
      * ------------------------------------------------------------
      */
     const fechaEntrada = new Date(createReservationDto.fechaEntrada);
     const fechaSalida = new Date(createReservationDto.fechaSalida);
 
-    // Fecha actual sin hora para comparar únicamente el día.
     const hoy = new Date();
     hoy.setHours(0, 0, 0, 0);
 
-    // Fecha de entrada sin hora.
     fechaEntrada.setHours(0, 0, 0, 0);
 
     if (fechaEntrada < hoy) {
@@ -151,10 +158,9 @@ export class ReservationsService {
 
     /**
      * ------------------------------------------------------------
-     * 7. Calcular automáticamente el valor total.
+     * 7. Calcular noches.
      * ------------------------------------------------------------
      */
-
     const diferenciaTiempo =
       fechaSalida.getTime() - fechaEntrada.getTime();
 
@@ -162,22 +168,12 @@ export class ReservationsService {
       diferenciaTiempo / (1000 * 60 * 60 * 24),
     );
 
-    /**
-     * Validar que exista al menos una noche.
-     */
     if (cantidadNoches <= 0) {
       throw new BadRequestException(
         'La fecha de salida debe ser posterior a la fecha de entrada.',
       );
     }
 
-    /**
- * ------------------------------------------------------------
- * 7.1 Validar la duración máxima de la reserva.
- * ------------------------------------------------------------
- *
- * No permitimos reservas superiores a 30 noches.
- */
     if (cantidadNoches > 30) {
       throw new BadRequestException(
         'La estancia máxima permitida es de 30 noches.',
@@ -185,18 +181,16 @@ export class ReservationsService {
     }
 
     /**
-     * Precio por noche.
+     * ------------------------------------------------------------
+     * 8. Calcular valor total.
+     * ------------------------------------------------------------
      */
     const precioNoche = Number(propiedad.precioNoche);
-
-    /**
-     * Valor total calculado automáticamente.
-     */
     const valorTotal = precioNoche * cantidadNoches;
 
     /**
      * ------------------------------------------------------------
-     * 8. Crear la reserva.
+     * 9. Crear reserva.
      * ------------------------------------------------------------
      */
     return this.prisma.reserva.create({
@@ -256,12 +250,184 @@ export class ReservationsService {
    * ACTUALIZAR UNA RESERVA
    * ============================================================
    */
-  update(id: number, updateReservationDto: UpdateReservationDto) {
-    return this.prisma.reserva.update({
+  async update(
+    id: number,
+    updateReservationDto: UpdateReservationDto,
+  ) {
+
+    /**
+     * ------------------------------------------------------------
+     * 1. Buscar la reserva.
+     * ------------------------------------------------------------
+     */
+    const reserva = await this.prisma.reserva.findUnique({
       where: {
         id,
       },
-      data: updateReservationDto,
+    });
+
+    if (!reserva) {
+      throw new NotFoundException(
+        'La reserva no existe.',
+      );
+    }
+
+    /**
+     * ------------------------------------------------------------
+     * 2. Buscar la propiedad asociada.
+     * ------------------------------------------------------------
+     */
+    const propiedad = await this.prisma.propiedad.findUnique({
+      where: {
+        id: reserva.propiedadId,
+      },
+    });
+
+    if (!propiedad) {
+      throw new NotFoundException(
+        'La propiedad asociada a la reserva no existe.',
+      );
+    }
+
+    /**
+     * ------------------------------------------------------------
+     * 3. Validar cantidad de personas.
+     * ------------------------------------------------------------
+     */
+    if (updateReservationDto.cantidadPersonas !== undefined) {
+
+      if (updateReservationDto.cantidadPersonas <= 0) {
+        throw new BadRequestException(
+          'La cantidad de personas debe ser mayor que cero.',
+        );
+      }
+
+      if (
+        updateReservationDto.cantidadPersonas >
+        propiedad.capacidad
+      ) {
+        throw new BadRequestException(
+          `La propiedad admite máximo ${propiedad.capacidad} personas.`,
+        );
+      }
+    }
+
+    /**
+     * ------------------------------------------------------------
+     * 4. Obtener las fechas que realmente tendrá la reserva.
+     * ------------------------------------------------------------
+     */
+    const fechaEntrada = updateReservationDto.fechaEntrada
+      ? new Date(updateReservationDto.fechaEntrada)
+      : new Date(reserva.fechaEntrada);
+
+    const fechaSalida = updateReservationDto.fechaSalida
+      ? new Date(updateReservationDto.fechaSalida)
+      : new Date(reserva.fechaSalida);
+
+    /**
+     * ------------------------------------------------------------
+     * 5. Validar rango de fechas.
+     * ------------------------------------------------------------
+     */
+    if (fechaSalida <= fechaEntrada) {
+      throw new BadRequestException(
+        'La fecha de salida debe ser posterior a la fecha de entrada.',
+      );
+    }
+
+    /**
+     * ------------------------------------------------------------
+     * 6. Verificar reservas cruzadas.
+     *
+     * IMPORTANTE:
+     * Excluimos la misma reserva para evitar
+     * que choque consigo misma.
+     * ------------------------------------------------------------
+     */
+    const reservaExistente = await this.prisma.reserva.findFirst({
+      where: {
+
+        propiedadId: reserva.propiedadId,
+
+        id: {
+          not: id,
+        },
+
+        fechaEntrada: {
+          lte: fechaSalida,
+        },
+
+        fechaSalida: {
+          gte: fechaEntrada,
+        },
+      },
+    });
+
+    if (reservaExistente) {
+      throw new BadRequestException(
+        'La propiedad ya se encuentra reservada para esas fechas.',
+      );
+    }
+
+    /**
+     * ------------------------------------------------------------
+     * 7. Calcular noches.
+     * ------------------------------------------------------------
+     */
+    const diferenciaTiempo =
+      fechaSalida.getTime() - fechaEntrada.getTime();
+
+    const cantidadNoches = Math.ceil(
+      diferenciaTiempo / (1000 * 60 * 60 * 24),
+    );
+
+    if (cantidadNoches <= 0) {
+      throw new BadRequestException(
+        'La fecha de salida debe ser posterior a la fecha de entrada.',
+      );
+    }
+
+    if (cantidadNoches > 30) {
+      throw new BadRequestException(
+        'La estancia máxima permitida es de 30 noches.',
+      );
+    }
+
+    /**
+     * ------------------------------------------------------------
+     * 8. Recalcular automáticamente el valor total.
+     * ------------------------------------------------------------
+     */
+    const valorTotal =
+      Number(propiedad.precioNoche) * cantidadNoches;
+
+    /**
+     * ------------------------------------------------------------
+     * 9. Actualizar la reserva.
+     * ------------------------------------------------------------
+     */
+    return this.prisma.reserva.update({
+
+      where: {
+        id,
+      },
+
+      data: {
+
+        ...updateReservationDto,
+
+        fechaEntrada,
+
+        fechaSalida,
+
+        valorTotal,
+      },
+
+      include: {
+        usuario: true,
+        propiedad: true,
+      },
     });
   }
 
