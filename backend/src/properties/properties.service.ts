@@ -35,39 +35,61 @@ export class PropertiesService {
   }
 
   /**
- * ============================================================
- * BUSCAR PROPIEDADES DISPONIBLES
- * ============================================================
- *
- * Retorna únicamente las propiedades activas que NO tengan
- * reservas que se crucen con el rango de fechas solicitado.
- *
- * Una propiedad estará disponible cuando:
- *
- * - Esté activa.
- * - No tenga reservas cuya fecha de entrada sea menor o igual
- *   a la fecha de salida buscada.
- * - No tenga reservas cuya fecha de salida sea mayor o igual
- *   a la fecha de entrada buscada.
- * ============================================================
- */
+  * ============================================================
+  * BUSCAR PROPIEDADES DISPONIBLES
+  * ============================================================
+  *
+  * Permite buscar propiedades disponibles utilizando
+  * filtros opcionales.
+  *
+  * Los filtros pueden ser:
+  *
+  * - Municipio
+  * - Tipo de propiedad
+  * - Capacidad mínima
+  *
+  * Si un filtro no se envía,
+  * simplemente no se aplica.
+  * ============================================================
+  */
   async buscarDisponibles(
     fechaEntrada: Date,
     fechaSalida: Date,
+    municipioId?: number,
+    tipoPropiedadId?: number,
+    capacidad?: number,
   ) {
 
     return this.prisma.propiedad.findMany({
 
-      /**
-       * Solamente propiedades activas.
-       */
       where: {
 
+        /**
+         * Solo propiedades activas.
+         */
         estado: true,
 
         /**
-         * Ninguna reserva debe cruzarse
-         * con el rango solicitado.
+         * Aplicar filtros únicamente
+         * cuando el usuario los envíe.
+         */
+        ...(municipioId && {
+          municipioId,
+        }),
+
+        ...(tipoPropiedadId && {
+          tipoPropiedadId,
+        }),
+
+        ...(capacidad && {
+          capacidad: {
+            gte: capacidad,
+          },
+        }),
+
+        /**
+         * Excluir propiedades ocupadas
+         * durante el rango solicitado.
          */
         reservas: {
 

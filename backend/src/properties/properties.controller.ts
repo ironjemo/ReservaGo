@@ -17,7 +17,7 @@ import { UpdatePropertyDto } from './dto/update-property.dto';
 export class PropertiesController {
   constructor(
     private readonly propertiesService: PropertiesService,
-  ) {}
+  ) { }
 
   /**
    * ============================================================
@@ -40,25 +40,55 @@ export class PropertiesController {
   }
 
   /**
-   * ============================================================
-   * BUSCAR PROPIEDADES DISPONIBLES
-   * ============================================================
-   *
-   * Ejemplo:
-   *
-   * GET /properties/disponibles
-   *      ?entrada=2026-12-10
-   *      &salida=2026-12-15
-   * ============================================================
-   */
+ * ============================================================
+ * BUSCAR PROPIEDADES DISPONIBLES
+ * ============================================================
+ *
+ * Ejemplos:
+ *
+ * GET /properties/disponibles
+ * ?entrada=2026-12-20
+ * &salida=2026-12-22
+ *
+ * GET /properties/disponibles
+ * ?entrada=2026-12-20
+ * &salida=2026-12-22
+ * &municipioId=2
+ *
+ * GET /properties/disponibles
+ * ?entrada=2026-12-20
+ * &salida=2026-12-22
+ * &municipioId=2
+ * &tipoPropiedadId=3
+ * &capacidad=8
+ *
+ * Todos los filtros son opcionales,
+ * excepto las fechas.
+ * ============================================================
+ */
   @Get('disponibles')
   buscarDisponibles(
     @Query('entrada') entrada: string,
     @Query('salida') salida: string,
+    @Query('municipioId') municipioId?: string,
+    @Query('tipoPropiedadId') tipoPropiedadId?: string,
+    @Query('capacidad') capacidad?: string,
   ) {
     return this.propertiesService.buscarDisponibles(
       new Date(entrada),
       new Date(salida),
+
+      municipioId
+        ? Number(municipioId)
+        : undefined,
+
+      tipoPropiedadId
+        ? Number(tipoPropiedadId)
+        : undefined,
+
+      capacidad
+        ? Number(capacidad)
+        : undefined,
     );
   }
 
