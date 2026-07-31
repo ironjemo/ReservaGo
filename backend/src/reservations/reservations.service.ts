@@ -10,7 +10,7 @@ import { UpdateReservationDto } from './dto/update-reservation.dto';
 
 @Injectable()
 export class ReservationsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly prisma: PrismaService) { }
 
   /**
    * ============================================================
@@ -198,7 +198,7 @@ export class ReservationsService {
         fechaEntrada: createReservationDto.fechaEntrada,
         fechaSalida: createReservationDto.fechaSalida,
         cantidadPersonas: createReservationDto.cantidadPersonas,
-        estado: createReservationDto.estado,
+        estado: 'PENDIENTE',
         usuarioId: createReservationDto.usuarioId,
         propiedadId: createReservationDto.propiedadId,
         valorTotal,
@@ -270,6 +270,50 @@ export class ReservationsService {
       throw new NotFoundException(
         'La reserva no existe.',
       );
+    }
+
+    /**
+ * ------------------------------------------------------------
+ * Validar transición de estados.
+ * ------------------------------------------------------------
+ */
+
+    if (updateReservationDto.estado) {
+
+      const estadoActual = reserva.estado;
+
+      const nuevoEstado = updateReservationDto.estado;
+
+      const transicionesValidas: Record<string, string[]> = {
+
+        PENDIENTE: [
+          'CONFIRMADA',
+          'CANCELADA',
+        ],
+
+        CONFIRMADA: [
+          'FINALIZADA',
+          'CANCELADA',
+        ],
+
+        CANCELADA: [],
+
+        FINALIZADA: [],
+      };
+
+      const estadosPermitidos =
+        transicionesValidas[estadoActual] ?? [];
+
+      if (!estadosPermitidos.includes(nuevoEstado)) {
+
+        throw new BadRequestException(
+
+          `No es posible cambiar una reserva de ${estadoActual} a ${nuevoEstado}.`
+
+        );
+
+      }
+
     }
 
     /**
