@@ -44,36 +44,42 @@ export class PropertiesController {
   * BUSCAR PROPIEDADES DISPONIBLES
   * ============================================================
   *
-  * Permite buscar propiedades disponibles aplicando filtros.
+  * Permite buscar propiedades disponibles utilizando filtros
+  * opcionales.
   *
-  * Ejemplos:
+  * Filtros disponibles:
   *
-  * /properties/disponibles
-  * ?entrada=2026-12-20
-  * &salida=2026-12-22
-  *
-  * /properties/disponibles
-  * ?entrada=2026-12-20
-  * &salida=2026-12-22
-  * &municipioId=2
-  * &tipoPropiedadId=3
-  * &capacidad=6
-  * &precioMin=300000
-  * &precioMax=500000
-  *
-  * Todos los filtros son opcionales,
-  * excepto las fechas.
+  * - municipioId
+  * - tipoPropiedadId
+  * - capacidad
+  * - precioMin
+  * - precioMax
+  * - aceptaMascotas
+  * - piscina
+  * - jacuzzi
+  * - wifi
+  * - parqueadero
+  * - asador
   * ============================================================
   */
   @Get('disponibles')
   buscarDisponibles(
     @Query('entrada') entrada: string,
     @Query('salida') salida: string,
+
     @Query('municipioId') municipioId?: string,
     @Query('tipoPropiedadId') tipoPropiedadId?: string,
     @Query('capacidad') capacidad?: string,
+
     @Query('precioMin') precioMin?: string,
     @Query('precioMax') precioMax?: string,
+
+    @Query('aceptaMascotas') aceptaMascotas?: string,
+    @Query('piscina') piscina?: string,
+    @Query('jacuzzi') jacuzzi?: string,
+    @Query('wifi') wifi?: string,
+    @Query('parqueadero') parqueadero?: string,
+    @Query('asador') asador?: string,
   ) {
     return this.propertiesService.buscarDisponibles(
       new Date(entrada),
@@ -97,6 +103,30 @@ export class PropertiesController {
 
       precioMax
         ? Number(precioMax)
+        : undefined,
+
+      aceptaMascotas !== undefined
+        ? aceptaMascotas === 'true'
+        : undefined,
+
+      piscina !== undefined
+        ? piscina === 'true'
+        : undefined,
+
+      jacuzzi !== undefined
+        ? jacuzzi === 'true'
+        : undefined,
+
+      wifi !== undefined
+        ? wifi === 'true'
+        : undefined,
+
+      parqueadero !== undefined
+        ? parqueadero === 'true'
+        : undefined,
+
+      asador !== undefined
+        ? asador === 'true'
         : undefined,
     );
   }

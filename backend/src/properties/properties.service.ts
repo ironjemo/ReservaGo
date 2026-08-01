@@ -57,6 +57,12 @@ export class PropertiesService {
     capacidad?: number,
     precioMin?: number,
     precioMax?: number,
+    aceptaMascotas?: boolean,
+    piscina?: boolean,
+    jacuzzi?: boolean,
+    wifi?: boolean,
+    parqueadero?: boolean,
+    asador?: boolean,
   ) {
 
     return this.prisma.propiedad.findMany({
@@ -114,6 +120,54 @@ export class PropertiesService {
             }),
             lte: precioMax,
           },
+        }),
+
+        /**
+ * ------------------------------------------------------------
+ * Filtros por características de la propiedad.
+ * ------------------------------------------------------------
+ */
+
+        /**
+         * Acepta mascotas.
+         */
+        ...(aceptaMascotas !== undefined && {
+          aceptaMascotas,
+        }),
+
+        /**
+         * Piscina.
+         */
+        ...(piscina !== undefined && {
+          piscina,
+        }),
+
+        /**
+         * Jacuzzi.
+         */
+        ...(jacuzzi !== undefined && {
+          jacuzzi,
+        }),
+
+        /**
+         * WiFi.
+         */
+        ...(wifi !== undefined && {
+          wifi,
+        }),
+
+        /**
+         * Parqueadero.
+         */
+        ...(parqueadero !== undefined && {
+          parqueadero,
+        }),
+
+        /**
+         * Asador.
+         */
+        ...(asador !== undefined && {
+          asador,
         }),
 
         /**
