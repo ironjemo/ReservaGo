@@ -80,6 +80,8 @@ export class PropertiesController {
     @Query('wifi') wifi?: string,
     @Query('parqueadero') parqueadero?: string,
     @Query('asador') asador?: string,
+    @Query('habitaciones') habitaciones?: string,
+    @Query('banos') banos?: string,
   ) {
     return this.propertiesService.buscarDisponibles(
       new Date(entrada),
@@ -127,6 +129,14 @@ export class PropertiesController {
 
       asador !== undefined
         ? asador === 'true'
+        : undefined,
+
+      habitaciones
+        ? Number(habitaciones)
+        : undefined,
+
+      banos
+        ? Number(banos)
         : undefined,
     );
   }

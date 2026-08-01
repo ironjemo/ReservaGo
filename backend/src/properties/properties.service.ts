@@ -63,8 +63,9 @@ export class PropertiesService {
     wifi?: boolean,
     parqueadero?: boolean,
     asador?: boolean,
+    habitaciones?: number,
+    banos?: number,
   ) {
-
     return this.prisma.propiedad.findMany({
 
       where: {
@@ -168,6 +169,28 @@ export class PropertiesService {
          */
         ...(asador !== undefined && {
           asador,
+        }),
+
+        /**
+ * ------------------------------------------------------------
+ * Cantidad mínima de habitaciones.
+ * ------------------------------------------------------------
+ */
+        ...(habitaciones && {
+          habitaciones: {
+            gte: habitaciones,
+          },
+        }),
+
+        /**
+         * ------------------------------------------------------------
+         * Cantidad mínima de baños.
+         * ------------------------------------------------------------
+         */
+        ...(banos && {
+          banos: {
+            gte: banos,
+          },
         }),
 
         /**
