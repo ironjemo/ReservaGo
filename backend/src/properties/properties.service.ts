@@ -35,29 +35,28 @@ export class PropertiesService {
   }
 
   /**
-  * ============================================================
-  * BUSCAR PROPIEDADES DISPONIBLES
-  * ============================================================
-  *
-  * Permite buscar propiedades disponibles utilizando
-  * filtros opcionales.
-  *
-  * Los filtros pueden ser:
-  *
-  * - Municipio
-  * - Tipo de propiedad
-  * - Capacidad mínima
-  *
-  * Si un filtro no se envía,
-  * simplemente no se aplica.
-  * ============================================================
-  */
+ * ============================================================
+ * BUSCAR PROPIEDADES DISPONIBLES
+ * ============================================================
+ *
+ * Permite buscar propiedades disponibles aplicando filtros
+ * opcionales como:
+ *
+ * - Municipio
+ * - Tipo de propiedad
+ * - Capacidad
+ * - Precio mínimo
+ * - Precio máximo
+ * ============================================================
+ */
   async buscarDisponibles(
     fechaEntrada: Date,
     fechaSalida: Date,
     municipioId?: number,
     tipoPropiedadId?: number,
     capacidad?: number,
+    precioMin?: number,
+    precioMax?: number,
   ) {
 
     return this.prisma.propiedad.findMany({
@@ -81,9 +80,39 @@ export class PropertiesService {
           tipoPropiedadId,
         }),
 
+        /**
+ * ------------------------------------------------------------
+ * Capacidad mínima requerida.
+ * ------------------------------------------------------------
+ */
         ...(capacidad && {
           capacidad: {
             gte: capacidad,
+          },
+        }),
+
+        /**
+         * ------------------------------------------------------------
+         * Precio mínimo por noche.
+         * ------------------------------------------------------------
+         */
+        ...(precioMin && {
+          precioNoche: {
+            gte: precioMin,
+          },
+        }),
+
+        /**
+         * ------------------------------------------------------------
+         * Precio máximo por noche.
+         * ------------------------------------------------------------
+         */
+        ...(precioMax && {
+          precioNoche: {
+            ...(precioMin && {
+              gte: precioMin,
+            }),
+            lte: precioMax,
           },
         }),
 

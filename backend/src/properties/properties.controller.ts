@@ -40,32 +40,31 @@ export class PropertiesController {
   }
 
   /**
- * ============================================================
- * BUSCAR PROPIEDADES DISPONIBLES
- * ============================================================
- *
- * Ejemplos:
- *
- * GET /properties/disponibles
- * ?entrada=2026-12-20
- * &salida=2026-12-22
- *
- * GET /properties/disponibles
- * ?entrada=2026-12-20
- * &salida=2026-12-22
- * &municipioId=2
- *
- * GET /properties/disponibles
- * ?entrada=2026-12-20
- * &salida=2026-12-22
- * &municipioId=2
- * &tipoPropiedadId=3
- * &capacidad=8
- *
- * Todos los filtros son opcionales,
- * excepto las fechas.
- * ============================================================
- */
+  * ============================================================
+  * BUSCAR PROPIEDADES DISPONIBLES
+  * ============================================================
+  *
+  * Permite buscar propiedades disponibles aplicando filtros.
+  *
+  * Ejemplos:
+  *
+  * /properties/disponibles
+  * ?entrada=2026-12-20
+  * &salida=2026-12-22
+  *
+  * /properties/disponibles
+  * ?entrada=2026-12-20
+  * &salida=2026-12-22
+  * &municipioId=2
+  * &tipoPropiedadId=3
+  * &capacidad=6
+  * &precioMin=300000
+  * &precioMax=500000
+  *
+  * Todos los filtros son opcionales,
+  * excepto las fechas.
+  * ============================================================
+  */
   @Get('disponibles')
   buscarDisponibles(
     @Query('entrada') entrada: string,
@@ -73,6 +72,8 @@ export class PropertiesController {
     @Query('municipioId') municipioId?: string,
     @Query('tipoPropiedadId') tipoPropiedadId?: string,
     @Query('capacidad') capacidad?: string,
+    @Query('precioMin') precioMin?: string,
+    @Query('precioMax') precioMax?: string,
   ) {
     return this.propertiesService.buscarDisponibles(
       new Date(entrada),
@@ -89,9 +90,16 @@ export class PropertiesController {
       capacidad
         ? Number(capacidad)
         : undefined,
+
+      precioMin
+        ? Number(precioMin)
+        : undefined,
+
+      precioMax
+        ? Number(precioMax)
+        : undefined,
     );
   }
-
   /**
    * ============================================================
    * OBTENER UNA PROPIEDAD POR ID
