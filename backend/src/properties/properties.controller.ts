@@ -7,7 +7,10 @@ import {
   Patch,
   Post,
   Query,
+  UseGuards,
 } from '@nestjs/common';
+
+import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 
 import { PropertiesService } from './properties.service';
 import { CreatePropertyDto } from './dto/create-property.dto';
@@ -17,13 +20,14 @@ import { UpdatePropertyDto } from './dto/update-property.dto';
 export class PropertiesController {
   constructor(
     private readonly propertiesService: PropertiesService,
-  ) { }
+  ) {}
 
   /**
    * ============================================================
    * CREAR PROPIEDAD
    * ============================================================
    */
+  @UseGuards(JwtAuthGuard)
   @Post()
   create(@Body() createPropertyDto: CreatePropertyDto) {
     return this.propertiesService.create(createPropertyDto);
@@ -40,28 +44,28 @@ export class PropertiesController {
   }
 
   /**
-  * ============================================================
-  * BUSCAR PROPIEDADES DISPONIBLES
-  * ============================================================
-  *
-  * Permite buscar propiedades disponibles utilizando filtros
-  * opcionales.
-  *
-  * Filtros disponibles:
-  *
-  * - municipioId
-  * - tipoPropiedadId
-  * - capacidad
-  * - precioMin
-  * - precioMax
-  * - aceptaMascotas
-  * - piscina
-  * - jacuzzi
-  * - wifi
-  * - parqueadero
-  * - asador
-  * ============================================================
-  */
+   * ============================================================
+   * BUSCAR PROPIEDADES DISPONIBLES
+   * ============================================================
+   *
+   * Permite buscar propiedades disponibles utilizando filtros
+   * opcionales.
+   *
+   * Filtros disponibles:
+   *
+   * - municipioId
+   * - tipoPropiedadId
+   * - capacidad
+   * - precioMin
+   * - precioMax
+   * - aceptaMascotas
+   * - piscina
+   * - jacuzzi
+   * - wifi
+   * - parqueadero
+   * - asador
+   * ============================================================
+   */
   @Get('disponibles')
   buscarDisponibles(
     @Query('entrada') entrada: string,
@@ -140,6 +144,7 @@ export class PropertiesController {
         : undefined,
     );
   }
+
   /**
    * ============================================================
    * OBTENER UNA PROPIEDAD POR ID
