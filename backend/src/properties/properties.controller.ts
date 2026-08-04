@@ -11,6 +11,8 @@ import {
 } from '@nestjs/common';
 
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { RolesGuard } from '../auth/guards/roles.guard';
+import { Roles } from '../auth/decorators/roles.decorator';
 
 import { PropertiesService } from './properties.service';
 import { CreatePropertyDto } from './dto/create-property.dto';
@@ -26,8 +28,13 @@ export class PropertiesController {
    * ============================================================
    * CREAR PROPIEDAD
    * ============================================================
+   *
+   * Solo los usuarios con rol PROPIETARIO
+   * pueden registrar nuevas propiedades.
+   * ============================================================
    */
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('PROPIETARIO')
   @Post()
   create(@Body() createPropertyDto: CreatePropertyDto) {
     return this.propertiesService.create(createPropertyDto);
