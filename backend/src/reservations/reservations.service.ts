@@ -4,13 +4,15 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 
+import { EstadoReserva } from '@prisma/client';
+
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateReservationDto } from './dto/create-reservation.dto';
 import { UpdateReservationDto } from './dto/update-reservation.dto';
 
 @Injectable()
 export class ReservationsService {
-  constructor(private readonly prisma: PrismaService) { }
+  constructor(private readonly prisma: PrismaService) {}
 
   /**
    * ============================================================
@@ -18,7 +20,6 @@ export class ReservationsService {
    * ============================================================
    */
   async create(createReservationDto: CreateReservationDto) {
-
     /**
      * ------------------------------------------------------------
      * 1. Buscar el usuario que realiza la reserva.
@@ -117,19 +118,28 @@ export class ReservationsService {
      * 5. Validar reservas cruzadas.
      * ------------------------------------------------------------
      */
-    const reservaExistente = await this.prisma.reserva.findFirst({
-      where: {
-        propiedadId: createReservationDto.propiedadId,
+    const fechaEntrada = new Date(
+      createReservationDto.fechaEntrada,
+    );
 
-        fechaEntrada: {
-          lte: createReservationDto.fechaSalida,
-        },
+    const fechaSalida = new Date(
+      createReservationDto.fechaSalida,
+    );
 
-        fechaSalida: {
-          gte: createReservationDto.fechaEntrada,
+    const reservaExistente =
+      await this.prisma.reserva.findFirst({
+        where: {
+          propiedadId: createReservationDto.propiedadId,
+
+          fechaEntrada: {
+            lt: fechaSalida,
+          },
+
+          fechaSalida: {
+            gt: fechaEntrada,
+          },
         },
-      },
-    });
+      });
 
     if (reservaExistente) {
       throw new BadRequestException(
@@ -142,15 +152,13 @@ export class ReservationsService {
      * 6. Validar fechas.
      * ------------------------------------------------------------
      */
-    const fechaEntrada = new Date(createReservationDto.fechaEntrada);
-    const fechaSalida = new Date(createReservationDto.fechaSalida);
-
     const hoy = new Date();
     hoy.setHours(0, 0, 0, 0);
 
-    fechaEntrada.setHours(0, 0, 0, 0);
+    const fechaEntradaValidacion = new Date(fechaEntrada);
+    fechaEntradaValidacion.setHours(0, 0, 0, 0);
 
-    if (fechaEntrada < hoy) {
+    if (fechaEntradaValidacion < hoy) {
       throw new BadRequestException(
         'La fecha de entrada no puede ser anterior a la fecha actual.',
       );
@@ -162,10 +170,12 @@ export class ReservationsService {
      * ------------------------------------------------------------
      */
     const diferenciaTiempo =
-      fechaSalida.getTime() - fechaEntrada.getTime();
+      fechaSalida.getTime() -
+      fechaEntrada.getTime();
 
     const cantidadNoches = Math.ceil(
-      diferenciaTiempo / (1000 * 60 * 60 * 24),
+      diferenciaTiempo /
+        (1000 * 60 * 60 * 24),
     );
 
     if (cantidadNoches <= 0) {
@@ -182,11 +192,26 @@ export class ReservationsService {
 
     /**
      * ------------------------------------------------------------
-     * 8. Calcular valor total.
+     * 8. Calcular valores financieros.
+     *
+     * precioNoche = precio actual de la propiedad
+     * subtotal    = precioNoche × cantidadNoches
+     * comision    = 10 % del subtotal
+     * valorTotal  = subtotal
      * ------------------------------------------------------------
      */
-    const precioNoche = Number(propiedad.precioNoche);
-    const valorTotal = precioNoche * cantidadNoches;
+    const precioNoche = Number(
+      propiedad.precioNoche,
+    );
+
+    const subtotal =
+      precioNoche * cantidadNoches;
+
+    const comision =
+      subtotal * 0.10;
+
+    const valorTotal =
+      subtotal;
 
     /**
      * ------------------------------------------------------------
@@ -195,17 +220,47 @@ export class ReservationsService {
      */
     return this.prisma.reserva.create({
       data: {
-        fechaEntrada: createReservationDto.fechaEntrada,
-        fechaSalida: createReservationDto.fechaSalida,
-        cantidadPersonas: createReservationDto.cantidadPersonas,
-        estado: 'PENDIENTE',
-        usuarioId: createReservationDto.usuarioId,
-        propiedadId: createReservationDto.propiedadId,
+        fechaEntrada,
+        fechaSalida,
+
+        cantidadPersonas:
+          createReservationDto.cantidadPersonas,
+
+        cantidadNoches,
+
+        precioNoche,
+
+        subtotal,
+
+        comision,
+
         valorTotal,
+
+        estado: EstadoReserva.PENDIENTE,
+
+        usuarioId:
+          createReservationDto.usuarioId,
+
+        propiedadId:
+          createReservationDto.propiedadId,
       },
 
       include: {
-        usuario: true,
+        usuario: {
+          select: {
+            id: true,
+            nombre: true,
+            apellido: true,
+            correo: true,
+            telefono: true,
+            whatsapp: true,
+            rol: true,
+            activo: true,
+            createdAt: true,
+            updatedAt: true,
+          },
+        },
+
         propiedad: true,
       },
     });
@@ -219,9 +274,24 @@ export class ReservationsService {
   findAll() {
     return this.prisma.reserva.findMany({
       include: {
-        usuario: true,
+        usuario: {
+          select: {
+            id: true,
+            nombre: true,
+            apellido: true,
+            correo: true,
+            telefono: true,
+            whatsapp: true,
+            rol: true,
+            activo: true,
+            createdAt: true,
+            updatedAt: true,
+          },
+        },
+
         propiedad: true,
       },
+
       orderBy: {
         id: 'asc',
       },
@@ -238,8 +308,23 @@ export class ReservationsService {
       where: {
         id,
       },
+
       include: {
-        usuario: true,
+        usuario: {
+          select: {
+            id: true,
+            nombre: true,
+            apellido: true,
+            correo: true,
+            telefono: true,
+            whatsapp: true,
+            rol: true,
+            activo: true,
+            createdAt: true,
+            updatedAt: true,
+          },
+        },
+
         propiedad: true,
       },
     });
@@ -254,17 +339,17 @@ export class ReservationsService {
     id: number,
     updateReservationDto: UpdateReservationDto,
   ) {
-
     /**
      * ------------------------------------------------------------
      * 1. Buscar la reserva.
      * ------------------------------------------------------------
      */
-    const reserva = await this.prisma.reserva.findUnique({
-      where: {
-        id,
-      },
-    });
+    const reserva =
+      await this.prisma.reserva.findUnique({
+        where: {
+          id,
+        },
+      });
 
     if (!reserva) {
       throw new NotFoundException(
@@ -273,59 +358,59 @@ export class ReservationsService {
     }
 
     /**
- * ------------------------------------------------------------
- * Validar transición de estados.
- * ------------------------------------------------------------
- */
-
+     * ------------------------------------------------------------
+     * 2. Validar transición de estados.
+     * ------------------------------------------------------------
+     */
     if (updateReservationDto.estado) {
+      const estadoActual =
+        reserva.estado;
 
-      const estadoActual = reserva.estado;
+      const nuevoEstado =
+        updateReservationDto.estado as EstadoReserva;
 
-      const nuevoEstado = updateReservationDto.estado;
-
-      const transicionesValidas: Record<string, string[]> = {
-
-        PENDIENTE: [
-          'CONFIRMADA',
-          'CANCELADA',
+      const transicionesValidas:
+        Record<EstadoReserva, EstadoReserva[]> = {
+        [EstadoReserva.PENDIENTE]: [
+          EstadoReserva.CONFIRMADA,
+          EstadoReserva.CANCELADA,
         ],
 
-        CONFIRMADA: [
-          'FINALIZADA',
-          'CANCELADA',
+        [EstadoReserva.CONFIRMADA]: [
+          EstadoReserva.FINALIZADA,
+          EstadoReserva.CANCELADA,
         ],
 
-        CANCELADA: [],
+        [EstadoReserva.CANCELADA]: [],
 
-        FINALIZADA: [],
+        [EstadoReserva.FINALIZADA]: [],
       };
 
       const estadosPermitidos =
         transicionesValidas[estadoActual] ?? [];
 
-      if (!estadosPermitidos.includes(nuevoEstado)) {
-
+      if (
+        !estadosPermitidos.includes(
+          nuevoEstado,
+        )
+      ) {
         throw new BadRequestException(
-
-          `No es posible cambiar una reserva de ${estadoActual} a ${nuevoEstado}.`
-
+          `No es posible cambiar una reserva de ${estadoActual} a ${nuevoEstado}.`,
         );
-
       }
-
     }
 
     /**
      * ------------------------------------------------------------
-     * 2. Buscar la propiedad asociada.
+     * 3. Buscar la propiedad asociada.
      * ------------------------------------------------------------
      */
-    const propiedad = await this.prisma.propiedad.findUnique({
-      where: {
-        id: reserva.propiedadId,
-      },
-    });
+    const propiedad =
+      await this.prisma.propiedad.findUnique({
+        where: {
+          id: reserva.propiedadId,
+        },
+      });
 
     if (!propiedad) {
       throw new NotFoundException(
@@ -335,43 +420,51 @@ export class ReservationsService {
 
     /**
      * ------------------------------------------------------------
-     * 3. Validar cantidad de personas.
+     * 4. Validar cantidad de personas.
      * ------------------------------------------------------------
      */
-    if (updateReservationDto.cantidadPersonas !== undefined) {
+    const cantidadPersonas =
+      updateReservationDto.cantidadPersonas ??
+      reserva.cantidadPersonas;
 
-      if (updateReservationDto.cantidadPersonas <= 0) {
-        throw new BadRequestException(
-          'La cantidad de personas debe ser mayor que cero.',
-        );
-      }
+    if (cantidadPersonas <= 0) {
+      throw new BadRequestException(
+        'La cantidad de personas debe ser mayor que cero.',
+      );
+    }
 
-      if (
-        updateReservationDto.cantidadPersonas >
-        propiedad.capacidad
-      ) {
-        throw new BadRequestException(
-          `La propiedad admite máximo ${propiedad.capacidad} personas.`,
-        );
-      }
+    if (
+      cantidadPersonas >
+      propiedad.capacidad
+    ) {
+      throw new BadRequestException(
+        `La propiedad admite máximo ${propiedad.capacidad} personas.`,
+      );
     }
 
     /**
      * ------------------------------------------------------------
-     * 4. Obtener las fechas que realmente tendrá la reserva.
+     * 5. Obtener las fechas que realmente tendrá
+     * la reserva.
      * ------------------------------------------------------------
      */
-    const fechaEntrada = updateReservationDto.fechaEntrada
-      ? new Date(updateReservationDto.fechaEntrada)
-      : new Date(reserva.fechaEntrada);
+    const fechaEntrada =
+      updateReservationDto.fechaEntrada
+        ? new Date(
+            updateReservationDto.fechaEntrada,
+          )
+        : new Date(reserva.fechaEntrada);
 
-    const fechaSalida = updateReservationDto.fechaSalida
-      ? new Date(updateReservationDto.fechaSalida)
-      : new Date(reserva.fechaSalida);
+    const fechaSalida =
+      updateReservationDto.fechaSalida
+        ? new Date(
+            updateReservationDto.fechaSalida,
+          )
+        : new Date(reserva.fechaSalida);
 
     /**
      * ------------------------------------------------------------
-     * 5. Validar rango de fechas.
+     * 6. Validar rango de fechas.
      * ------------------------------------------------------------
      */
     if (fechaSalida <= fechaEntrada) {
@@ -382,31 +475,30 @@ export class ReservationsService {
 
     /**
      * ------------------------------------------------------------
-     * 6. Verificar reservas cruzadas.
+     * 7. Verificar reservas cruzadas.
      *
-     * IMPORTANTE:
-     * Excluimos la misma reserva para evitar
-     * que choque consigo misma.
+     * Excluimos la misma reserva.
      * ------------------------------------------------------------
      */
-    const reservaExistente = await this.prisma.reserva.findFirst({
-      where: {
+    const reservaExistente =
+      await this.prisma.reserva.findFirst({
+        where: {
+          propiedadId:
+            reserva.propiedadId,
 
-        propiedadId: reserva.propiedadId,
+          id: {
+            not: id,
+          },
 
-        id: {
-          not: id,
+          fechaEntrada: {
+            lt: fechaSalida,
+          },
+
+          fechaSalida: {
+            gt: fechaEntrada,
+          },
         },
-
-        fechaEntrada: {
-          lte: fechaSalida,
-        },
-
-        fechaSalida: {
-          gte: fechaEntrada,
-        },
-      },
-    });
+      });
 
     if (reservaExistente) {
       throw new BadRequestException(
@@ -416,15 +508,18 @@ export class ReservationsService {
 
     /**
      * ------------------------------------------------------------
-     * 7. Calcular noches.
+     * 8. Calcular noches.
      * ------------------------------------------------------------
      */
     const diferenciaTiempo =
-      fechaSalida.getTime() - fechaEntrada.getTime();
+      fechaSalida.getTime() -
+      fechaEntrada.getTime();
 
-    const cantidadNoches = Math.ceil(
-      diferenciaTiempo / (1000 * 60 * 60 * 24),
-    );
+    const cantidadNoches =
+      Math.ceil(
+        diferenciaTiempo /
+          (1000 * 60 * 60 * 24),
+      );
 
     if (cantidadNoches <= 0) {
       throw new BadRequestException(
@@ -440,36 +535,93 @@ export class ReservationsService {
 
     /**
      * ------------------------------------------------------------
-     * 8. Recalcular automáticamente el valor total.
+     * 9. Mantener el precio histórico de la reserva.
+     *
+     * No usamos el precio actual de la propiedad.
+     * De esta manera una modificación de fechas no cambia
+     * arbitrariamente el precio pactado de la reserva.
      * ------------------------------------------------------------
      */
+    const precioNoche =
+      Number(reserva.precioNoche);
+
+    const subtotal =
+      precioNoche * cantidadNoches;
+
+    const comision =
+      subtotal * 0.10;
+
     const valorTotal =
-      Number(propiedad.precioNoche) * cantidadNoches;
+      subtotal;
 
     /**
      * ------------------------------------------------------------
-     * 9. Actualizar la reserva.
+     * 10. Preparar estado.
+     * ------------------------------------------------------------
+     */
+    const estado =
+      updateReservationDto.estado
+        ? (updateReservationDto.estado as EstadoReserva)
+        : reserva.estado;
+
+    /**
+     * ------------------------------------------------------------
+     * 11. Actualizar únicamente los campos permitidos.
+     *
+     * IMPORTANTE:
+     * No usamos:
+     *
+     * ...updateReservationDto
+     *
+     * porque permitiría enviar directamente:
+     *
+     * usuarioId
+     * propiedadId
+     *
+     * y producir conflictos con Prisma.
      * ------------------------------------------------------------
      */
     return this.prisma.reserva.update({
-
       where: {
         id,
       },
 
       data: {
-
-        ...updateReservationDto,
-
         fechaEntrada,
 
         fechaSalida,
 
+        cantidadPersonas,
+
+        cantidadNoches,
+
+        precioNoche,
+
+        subtotal,
+
+        comision,
+
         valorTotal,
+
+        estado,
       },
 
       include: {
-        usuario: true,
+        usuario: {
+          select: {
+            id: true,
+            nombre: true,
+            apellido: true,
+            correo: true,
+            telefono: true,
+            whatsapp: true,
+            rol: true,
+            activo: true,
+            createdAt: true,
+            updatedAt: true,
+          },
+        },
+
         propiedad: true,
       },
     });

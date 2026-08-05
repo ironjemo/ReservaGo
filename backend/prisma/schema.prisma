@@ -13,6 +13,13 @@ enum RolUsuario {
   CLIENTE
 }
 
+enum EstadoReserva {
+  PENDIENTE
+  CONFIRMADA
+  CANCELADA
+  FINALIZADA
+}
+
 model Usuario {
   id          Int         @id @default(autoincrement())
   nombre      String
@@ -109,23 +116,27 @@ model Propiedad {
 }
 
 model Reserva {
-  id                Int          @id @default(autoincrement())
+  id                Int            @id @default(autoincrement())
 
   fechaEntrada      DateTime
   fechaSalida       DateTime
 
   cantidadPersonas  Int
+  cantidadNoches    Int
 
-  valorTotal        Decimal      @db.Decimal(10,2)
+  precioNoche       Decimal        @db.Decimal(10, 2)
+  subtotal          Decimal        @db.Decimal(10, 2)
+  comision          Decimal        @db.Decimal(10, 2)
+  valorTotal        Decimal        @db.Decimal(10, 2)
 
-  estado            String       @default("PENDIENTE")
+  estado            EstadoReserva  @default(PENDIENTE)
 
   usuarioId         Int
-  usuario           Usuario      @relation(fields: [usuarioId], references: [id])
+  usuario           Usuario        @relation(fields: [usuarioId], references: [id])
 
   propiedadId       Int
-  propiedad         Propiedad    @relation(fields: [propiedadId], references: [id])
+  propiedad         Propiedad      @relation(fields: [propiedadId], references: [id])
 
-  createdAt         DateTime     @default(now())
-  updatedAt         DateTime     @updatedAt
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
 }
