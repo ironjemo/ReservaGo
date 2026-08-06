@@ -15,7 +15,6 @@ export class CreatePropertyDto {
   parqueadero?: boolean;
   asador?: boolean;
 
-  propietarioId!: number;
   municipioId!: number;
   tipoPropiedadId!: number;
 }

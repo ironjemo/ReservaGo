@@ -1,33 +1,94 @@
-import { Injectable } from '@nestjs/common';
+import {
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
+
 import { PrismaService } from '../prisma/prisma.service';
 import { CreatePropertyDto } from './dto/create-property.dto';
 import { UpdatePropertyDto } from './dto/update-property.dto';
 
 @Injectable()
 export class PropertiesService {
-  constructor(private prisma: PrismaService) { }
+  constructor(
+    private readonly prisma: PrismaService,
+  ) {}
 
-  create(createPropertyDto: CreatePropertyDto) {
+  /**
+   * ============================================================
+   * CREAR PROPIEDAD
+   * ============================================================
+   *
+   * El propietarioId viene del JWT y no del body.
+   * ============================================================
+   */
+  create(
+    createPropertyDto: CreatePropertyDto,
+    propietarioId: number,
+  ) {
     return this.prisma.propiedad.create({
-      data: createPropertyDto,
-    });
-  }
-
-  findAll() {
-    return this.prisma.propiedad.findMany({
-      include: {
-        propietario: true,
-        municipio: true,
-        tipoPropiedad: true,
+      data: {
+        ...createPropertyDto,
+        propietarioId,
       },
     });
   }
 
+  /**
+   * ============================================================
+   * LISTAR TODAS LAS PROPIEDADES
+   * ============================================================
+   *
+   * El password del propietario nunca se devuelve.
+   * ============================================================
+   */
+  findAll() {
+    return this.prisma.propiedad.findMany({
+      include: {
+        propietario: {
+          select: {
+            id: true,
+            nombre: true,
+            apellido: true,
+            correo: true,
+            telefono: true,
+            whatsapp: true,
+            rol: true,
+            activo: true,
+          },
+        },
+        municipio: true,
+        tipoPropiedad: true,
+      },
+      orderBy: {
+        id: 'asc',
+      },
+    });
+  }
+
+  /**
+   * ============================================================
+   * OBTENER UNA PROPIEDAD
+   * ============================================================
+   */
   findOne(id: number) {
     return this.prisma.propiedad.findUnique({
-      where: { id },
+      where: {
+        id,
+      },
       include: {
-        propietario: true,
+        propietario: {
+          select: {
+            id: true,
+            nombre: true,
+            apellido: true,
+            correo: true,
+            telefono: true,
+            whatsapp: true,
+            rol: true,
+            activo: true,
+          },
+        },
         municipio: true,
         tipoPropiedad: true,
       },
@@ -35,20 +96,10 @@ export class PropertiesService {
   }
 
   /**
- * ============================================================
- * BUSCAR PROPIEDADES DISPONIBLES
- * ============================================================
- *
- * Permite buscar propiedades disponibles aplicando filtros
- * opcionales como:
- *
- * - Municipio
- * - Tipo de propiedad
- * - Capacidad
- * - Precio mínimo
- * - Precio máximo
- * ============================================================
- */
+   * ============================================================
+   * BUSCAR PROPIEDADES DISPONIBLES
+   * ============================================================
+   */
   async buscarDisponibles(
     fechaEntrada: Date,
     fechaSalida: Date,
@@ -67,31 +118,29 @@ export class PropertiesService {
     banos?: number,
   ) {
     return this.prisma.propiedad.findMany({
-
       where: {
-
         /**
          * Solo propiedades activas.
          */
         estado: true,
 
         /**
-         * Aplicar filtros únicamente
-         * cuando el usuario los envíe.
+         * Filtro por municipio.
          */
         ...(municipioId && {
           municipioId,
         }),
 
+        /**
+         * Filtro por tipo de propiedad.
+         */
         ...(tipoPropiedadId && {
           tipoPropiedadId,
         }),
 
         /**
- * ------------------------------------------------------------
- * Capacidad mínima requerida.
- * ------------------------------------------------------------
- */
+         * Capacidad mínima.
+         */
         ...(capacidad && {
           capacidad: {
             gte: capacidad,
@@ -99,83 +148,49 @@ export class PropertiesService {
         }),
 
         /**
-         * ------------------------------------------------------------
-         * Precio mínimo por noche.
-         * ------------------------------------------------------------
+         * Precio mínimo y máximo.
          */
-        ...(precioMin && {
-          precioNoche: {
-            gte: precioMin,
-          },
-        }),
-
-        /**
-         * ------------------------------------------------------------
-         * Precio máximo por noche.
-         * ------------------------------------------------------------
-         */
-        ...(precioMax && {
+        ...(precioMin || precioMax) && {
           precioNoche: {
             ...(precioMin && {
               gte: precioMin,
             }),
-            lte: precioMax,
+            ...(precioMax && {
+              lte: precioMax,
+            }),
           },
-        }),
+        },
 
         /**
- * ------------------------------------------------------------
- * Filtros por características de la propiedad.
- * ------------------------------------------------------------
- */
-
-        /**
-         * Acepta mascotas.
+         * Características.
          */
         ...(aceptaMascotas !== undefined && {
           aceptaMascotas,
         }),
 
-        /**
-         * Piscina.
-         */
         ...(piscina !== undefined && {
           piscina,
         }),
 
-        /**
-         * Jacuzzi.
-         */
         ...(jacuzzi !== undefined && {
           jacuzzi,
         }),
 
-        /**
-         * WiFi.
-         */
         ...(wifi !== undefined && {
           wifi,
         }),
 
-        /**
-         * Parqueadero.
-         */
         ...(parqueadero !== undefined && {
           parqueadero,
         }),
 
-        /**
-         * Asador.
-         */
         ...(asador !== undefined && {
           asador,
         }),
 
         /**
- * ------------------------------------------------------------
- * Cantidad mínima de habitaciones.
- * ------------------------------------------------------------
- */
+         * Habitaciones mínimas.
+         */
         ...(habitaciones && {
           habitaciones: {
             gte: habitaciones,
@@ -183,9 +198,7 @@ export class PropertiesService {
         }),
 
         /**
-         * ------------------------------------------------------------
-         * Cantidad mínima de baños.
-         * ------------------------------------------------------------
+         * Baños mínimos.
          */
         ...(banos && {
           banos: {
@@ -198,59 +211,123 @@ export class PropertiesService {
          * durante el rango solicitado.
          */
         reservas: {
-
           none: {
-
             fechaEntrada: {
               lte: fechaSalida,
             },
-
             fechaSalida: {
               gte: fechaEntrada,
             },
-
           },
-
         },
-
       },
 
-      /**
-       * Retornamos información relacionada.
-       */
       include: {
-
-        propietario: true,
-
+        propietario: {
+          select: {
+            id: true,
+            nombre: true,
+            apellido: true,
+            correo: true,
+            telefono: true,
+            whatsapp: true,
+            rol: true,
+            activo: true,
+          },
+        },
         municipio: true,
-
         tipoPropiedad: true,
-
       },
 
-      /**
-       * Ordenar por ID.
-       */
       orderBy: {
-
         id: 'asc',
-
       },
-
     });
-
   }
 
-  update(id: number, updatePropertyDto: UpdatePropertyDto) {
+  /**
+   * ============================================================
+   * ACTUALIZAR PROPIEDAD
+   * ============================================================
+   *
+   * Verifica primero que la propiedad pertenezca
+   * al propietario autenticado.
+   * ============================================================
+   */
+  async update(
+    id: number,
+    updatePropertyDto: UpdatePropertyDto,
+    propietarioId: number,
+  ) {
+    const propiedad = await this.prisma.propiedad.findUnique({
+      where: {
+        id,
+      },
+      select: {
+        id: true,
+        propietarioId: true,
+      },
+    });
+
+    if (!propiedad) {
+      throw new NotFoundException(
+        'La propiedad no existe.',
+      );
+    }
+
+    if (propiedad.propietarioId !== propietarioId) {
+      throw new ForbiddenException(
+        'No tienes permiso para modificar esta propiedad.',
+      );
+    }
+
     return this.prisma.propiedad.update({
-      where: { id },
+      where: {
+        id,
+      },
       data: updatePropertyDto,
     });
   }
 
-  remove(id: number) {
+  /**
+   * ============================================================
+   * ELIMINAR PROPIEDAD
+   * ============================================================
+   *
+   * Verifica que la propiedad pertenezca al propietario
+   * autenticado antes de eliminarla.
+   * ============================================================
+   */
+  async remove(
+    id: number,
+    propietarioId: number,
+  ) {
+    const propiedad = await this.prisma.propiedad.findUnique({
+      where: {
+        id,
+      },
+      select: {
+        id: true,
+        propietarioId: true,
+      },
+    });
+
+    if (!propiedad) {
+      throw new NotFoundException(
+        'La propiedad no existe.',
+      );
+    }
+
+    if (propiedad.propietarioId !== propietarioId) {
+      throw new ForbiddenException(
+        'No tienes permiso para eliminar esta propiedad.',
+      );
+    }
+
     return this.prisma.propiedad.delete({
-      where: { id },
+      where: {
+        id,
+      },
     });
   }
 }

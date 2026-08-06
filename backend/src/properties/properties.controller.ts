@@ -7,6 +7,7 @@ import {
   Patch,
   Post,
   Query,
+  Req,
   UseGuards,
 } from '@nestjs/common';
 
@@ -29,15 +30,24 @@ export class PropertiesController {
    * CREAR PROPIEDAD
    * ============================================================
    *
-   * Solo los usuarios con rol PROPIETARIO
-   * pueden registrar nuevas propiedades.
+   * Solo un usuario autenticado con rol PROPIETARIO
+   * puede crear una propiedad.
+   *
+   * El propietarioId se obtiene directamente desde el JWT.
+   * No se recibe desde el body.
    * ============================================================
    */
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('PROPIETARIO')
   @Post()
-  create(@Body() createPropertyDto: CreatePropertyDto) {
-    return this.propertiesService.create(createPropertyDto);
+  create(
+    @Body() createPropertyDto: CreatePropertyDto,
+    @Req() req: any,
+  ) {
+    return this.propertiesService.create(
+      createPropertyDto,
+      req.user.id,
+    );
   }
 
   /**
@@ -53,24 +63,6 @@ export class PropertiesController {
   /**
    * ============================================================
    * BUSCAR PROPIEDADES DISPONIBLES
-   * ============================================================
-   *
-   * Permite buscar propiedades disponibles utilizando filtros
-   * opcionales.
-   *
-   * Filtros disponibles:
-   *
-   * - municipioId
-   * - tipoPropiedadId
-   * - capacidad
-   * - precioMin
-   * - precioMax
-   * - aceptaMascotas
-   * - piscina
-   * - jacuzzi
-   * - wifi
-   * - parqueadero
-   * - asador
    * ============================================================
    */
   @Get('disponibles')
@@ -166,15 +158,23 @@ export class PropertiesController {
    * ============================================================
    * ACTUALIZAR PROPIEDAD
    * ============================================================
+   *
+   * Solo un PROPIETARIO autenticado puede actualizar
+   * una propiedad que le pertenece.
+   * ============================================================
    */
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('PROPIETARIO')
   @Patch(':id')
   update(
     @Param('id') id: string,
     @Body() updatePropertyDto: UpdatePropertyDto,
+    @Req() req: any,
   ) {
     return this.propertiesService.update(
       Number(id),
       updatePropertyDto,
+      req.user.id,
     );
   }
 
@@ -182,9 +182,21 @@ export class PropertiesController {
    * ============================================================
    * ELIMINAR PROPIEDAD
    * ============================================================
+   *
+   * Solo un PROPIETARIO autenticado puede eliminar
+   * una propiedad que le pertenece.
+   * ============================================================
    */
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('PROPIETARIO')
   @Delete(':id')
-  remove(@Param('id') id: string) {
-    return this.propertiesService.remove(Number(id));
+  remove(
+    @Param('id') id: string,
+    @Req() req: any,
+  ) {
+    return this.propertiesService.remove(
+      Number(id),
+      req.user.id,
+    );
   }
 }
