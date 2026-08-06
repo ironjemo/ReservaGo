@@ -18,16 +18,26 @@ export class ReservationsService {
    * ============================================================
    * CREAR UNA NUEVA RESERVA
    * ============================================================
+   *
+   * El usuario autenticado se recibe mediante usuarioId.
+   *
+   * El usuarioId NO proviene del DTO.
+   *
+   * Los valores financieros son calculados automáticamente.
+   * ============================================================
    */
-  async create(createReservationDto: CreateReservationDto) {
+  async create(
+    createReservationDto: CreateReservationDto,
+    usuarioId: number,
+  ) {
     /**
      * ------------------------------------------------------------
-     * 1. Buscar el usuario que realiza la reserva.
+     * 1. Buscar el usuario autenticado.
      * ------------------------------------------------------------
      */
     const usuario = await this.prisma.usuario.findUnique({
       where: {
-        id: createReservationDto.usuarioId,
+        id: usuarioId,
       },
     });
 
@@ -115,7 +125,7 @@ export class ReservationsService {
 
     /**
      * ------------------------------------------------------------
-     * 5. Validar reservas cruzadas.
+     * 5. Convertir y validar fechas.
      * ------------------------------------------------------------
      */
     const fechaEntrada = new Date(
@@ -126,10 +136,52 @@ export class ReservationsService {
       createReservationDto.fechaSalida,
     );
 
+    /**
+     * ------------------------------------------------------------
+     * 5.1 Validar fecha de entrada.
+     * ------------------------------------------------------------
+     */
+    const hoy = new Date();
+    hoy.setHours(0, 0, 0, 0);
+
+    const fechaEntradaValidacion = new Date(
+      fechaEntrada,
+    );
+
+    fechaEntradaValidacion.setHours(
+      0,
+      0,
+      0,
+      0,
+    );
+
+    if (fechaEntradaValidacion < hoy) {
+      throw new BadRequestException(
+        'La fecha de entrada no puede ser anterior a la fecha actual.',
+      );
+    }
+
+    /**
+     * ------------------------------------------------------------
+     * 5.2 Validar rango de fechas.
+     * ------------------------------------------------------------
+     */
+    if (fechaSalida <= fechaEntrada) {
+      throw new BadRequestException(
+        'La fecha de salida debe ser posterior a la fecha de entrada.',
+      );
+    }
+
+    /**
+     * ------------------------------------------------------------
+     * 6. Validar reservas cruzadas.
+     * ------------------------------------------------------------
+     */
     const reservaExistente =
       await this.prisma.reserva.findFirst({
         where: {
-          propiedadId: createReservationDto.propiedadId,
+          propiedadId:
+            createReservationDto.propiedadId,
 
           fechaEntrada: {
             lt: fechaSalida,
@@ -144,23 +196,6 @@ export class ReservationsService {
     if (reservaExistente) {
       throw new BadRequestException(
         'La propiedad ya se encuentra reservada para esas fechas.',
-      );
-    }
-
-    /**
-     * ------------------------------------------------------------
-     * 6. Validar fechas.
-     * ------------------------------------------------------------
-     */
-    const hoy = new Date();
-    hoy.setHours(0, 0, 0, 0);
-
-    const fechaEntradaValidacion = new Date(fechaEntrada);
-    fechaEntradaValidacion.setHours(0, 0, 0, 0);
-
-    if (fechaEntradaValidacion < hoy) {
-      throw new BadRequestException(
-        'La fecha de entrada no puede ser anterior a la fecha actual.',
       );
     }
 
@@ -216,11 +251,15 @@ export class ReservationsService {
     /**
      * ------------------------------------------------------------
      * 9. Crear reserva.
+     *
+     * El estado inicial siempre será PENDIENTE.
+     * El usuario se obtiene desde el JWT.
      * ------------------------------------------------------------
      */
     return this.prisma.reserva.create({
       data: {
         fechaEntrada,
+
         fechaSalida,
 
         cantidadPersonas:
@@ -236,10 +275,10 @@ export class ReservationsService {
 
         valorTotal,
 
-        estado: EstadoReserva.PENDIENTE,
+        estado:
+          EstadoReserva.PENDIENTE,
 
-        usuarioId:
-          createReservationDto.usuarioId,
+        usuarioId,
 
         propiedadId:
           createReservationDto.propiedadId,
@@ -334,6 +373,23 @@ export class ReservationsService {
    * ============================================================
    * ACTUALIZAR UNA RESERVA
    * ============================================================
+   *
+   * El PATCH solamente permite modificar:
+   *
+   * - fechaEntrada
+   * - fechaSalida
+   * - cantidadPersonas
+   *
+   * NO permite modificar:
+   *
+   * - usuarioId
+   * - propiedadId
+   * - estado
+   * - precioNoche
+   * - subtotal
+   * - comision
+   * - valorTotal
+   * ============================================================
    */
   async update(
     id: number,
@@ -359,50 +415,7 @@ export class ReservationsService {
 
     /**
      * ------------------------------------------------------------
-     * 2. Validar transición de estados.
-     * ------------------------------------------------------------
-     */
-    if (updateReservationDto.estado) {
-      const estadoActual =
-        reserva.estado;
-
-      const nuevoEstado =
-        updateReservationDto.estado as EstadoReserva;
-
-      const transicionesValidas:
-        Record<EstadoReserva, EstadoReserva[]> = {
-        [EstadoReserva.PENDIENTE]: [
-          EstadoReserva.CONFIRMADA,
-          EstadoReserva.CANCELADA,
-        ],
-
-        [EstadoReserva.CONFIRMADA]: [
-          EstadoReserva.FINALIZADA,
-          EstadoReserva.CANCELADA,
-        ],
-
-        [EstadoReserva.CANCELADA]: [],
-
-        [EstadoReserva.FINALIZADA]: [],
-      };
-
-      const estadosPermitidos =
-        transicionesValidas[estadoActual] ?? [];
-
-      if (
-        !estadosPermitidos.includes(
-          nuevoEstado,
-        )
-      ) {
-        throw new BadRequestException(
-          `No es posible cambiar una reserva de ${estadoActual} a ${nuevoEstado}.`,
-        );
-      }
-    }
-
-    /**
-     * ------------------------------------------------------------
-     * 3. Buscar la propiedad asociada.
+     * 2. Buscar la propiedad asociada.
      * ------------------------------------------------------------
      */
     const propiedad =
@@ -420,7 +433,7 @@ export class ReservationsService {
 
     /**
      * ------------------------------------------------------------
-     * 4. Validar cantidad de personas.
+     * 3. Validar cantidad de personas.
      * ------------------------------------------------------------
      */
     const cantidadPersonas =
@@ -444,7 +457,7 @@ export class ReservationsService {
 
     /**
      * ------------------------------------------------------------
-     * 5. Obtener las fechas que realmente tendrá
+     * 4. Obtener las fechas que realmente tendrá
      * la reserva.
      * ------------------------------------------------------------
      */
@@ -453,23 +466,52 @@ export class ReservationsService {
         ? new Date(
             updateReservationDto.fechaEntrada,
           )
-        : new Date(reserva.fechaEntrada);
+        : new Date(
+            reserva.fechaEntrada,
+          );
 
     const fechaSalida =
       updateReservationDto.fechaSalida
         ? new Date(
             updateReservationDto.fechaSalida,
           )
-        : new Date(reserva.fechaSalida);
+        : new Date(
+            reserva.fechaSalida,
+          );
 
     /**
      * ------------------------------------------------------------
-     * 6. Validar rango de fechas.
+     * 5. Validar rango de fechas.
      * ------------------------------------------------------------
      */
     if (fechaSalida <= fechaEntrada) {
       throw new BadRequestException(
         'La fecha de salida debe ser posterior a la fecha de entrada.',
+      );
+    }
+
+    /**
+     * ------------------------------------------------------------
+     * 6. Validar que la nueva fecha de entrada
+     * no sea anterior al día actual.
+     * ------------------------------------------------------------
+     */
+    const hoy = new Date();
+    hoy.setHours(0, 0, 0, 0);
+
+    const fechaEntradaValidacion =
+      new Date(fechaEntrada);
+
+    fechaEntradaValidacion.setHours(
+      0,
+      0,
+      0,
+      0,
+    );
+
+    if (fechaEntradaValidacion < hoy) {
+      throw new BadRequestException(
+        'La fecha de entrada no puede ser anterior a la fecha actual.',
       );
     }
 
@@ -556,29 +598,9 @@ export class ReservationsService {
 
     /**
      * ------------------------------------------------------------
-     * 10. Preparar estado.
-     * ------------------------------------------------------------
-     */
-    const estado =
-      updateReservationDto.estado
-        ? (updateReservationDto.estado as EstadoReserva)
-        : reserva.estado;
-
-    /**
-     * ------------------------------------------------------------
-     * 11. Actualizar únicamente los campos permitidos.
+     * 10. Actualizar únicamente los campos permitidos.
      *
-     * IMPORTANTE:
-     * No usamos:
-     *
-     * ...updateReservationDto
-     *
-     * porque permitiría enviar directamente:
-     *
-     * usuarioId
-     * propiedadId
-     *
-     * y producir conflictos con Prisma.
+     * El estado actual se conserva.
      * ------------------------------------------------------------
      */
     return this.prisma.reserva.update({
@@ -603,7 +625,8 @@ export class ReservationsService {
 
         valorTotal,
 
-        estado,
+        estado:
+          reserva.estado,
       },
 
       include: {

@@ -4,10 +4,11 @@
  * ============================================================
  *
  * El cliente únicamente enviará la información necesaria
- * para realizar la reserva.
+ * para solicitar la reserva.
  *
- * El valorTotal NO será enviado desde el frontend.
- * Será calculado automáticamente por el backend.
+ * El usuario autenticado se obtiene desde el JWT.
+ * El estado inicial será controlado por el backend.
+ * Los valores financieros serán calculados automáticamente.
  * ============================================================
  */
 
@@ -26,17 +27,6 @@ export class CreateReservationDto {
    * Número de personas.
    */
   cantidadPersonas!: number;
-
-  /**
-   * Estado inicial.
-   * Si no se envía, Prisma utilizará el valor por defecto.
-   */
-  estado?: string;
-
-  /**
-   * Cliente que realiza la reserva.
-   */
-  usuarioId!: number;
 
   /**
    * Propiedad que será reservada.
