@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState } from "react";
 
 type Propiedad = {
@@ -181,12 +182,12 @@ export default function AlojamientosPage() {
                                             </p>
                                         </div>
 
-                                        <button
-                                            type="button"
+                                        <Link
+                                            href={`/alojamientos/${propiedad.id}`}
                                             className="rounded-xl bg-teal-700 px-5 py-3 font-semibold text-white transition hover:bg-teal-800"
                                         >
                                             Ver alojamiento
-                                        </button>
+                                        </Link>
 
                                     </div>
 
