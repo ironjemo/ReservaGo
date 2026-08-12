@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { useParams } from "next/navigation";
 
 type Propiedad = {
@@ -19,19 +20,37 @@ type Propiedad = {
     parqueadero: boolean;
     asador: boolean;
     estado: boolean;
+
     municipio: {
         id: number;
         nombre: string;
     };
+
     tipoPropiedad: {
         id: number;
         nombre: string;
         descripcion: string | null;
     };
+
+    propietario: {
+        id: number;
+        nombre: string;
+        apellido: string;
+        correo: string;
+        telefono?: string | null;
+        whatsapp?: string | null;
+        rol: string;
+        activo: boolean;
+    };
+};
+
+type Caracteristica = {
+    icono: string;
+    nombre: string;
 };
 
 export default function DetalleAlojamientoPage() {
-    const params = useParams();
+    const params = useParams<{ id: string }>();
     const id = params.id;
 
     const [propiedad, setPropiedad] = useState<Propiedad | null>(null);
@@ -39,7 +58,9 @@ export default function DetalleAlojamientoPage() {
     const [error, setError] = useState("");
 
     useEffect(() => {
-        if (!id) return;
+        if (!id) {
+            return;
+        }
 
         const obtenerPropiedad = async () => {
             try {
@@ -51,7 +72,9 @@ export default function DetalleAlojamientoPage() {
                 );
 
                 if (!response.ok) {
-                    throw new Error("No fue posible obtener el alojamiento.");
+                    throw new Error(
+                        "No fue posible obtener el alojamiento.",
+                    );
                 }
 
                 const data: Propiedad = await response.json();
@@ -59,7 +82,10 @@ export default function DetalleAlojamientoPage() {
                 setPropiedad(data);
             } catch (err) {
                 console.error(err);
-                setError("No fue posible cargar el alojamiento.");
+
+                setError(
+                    "No fue posible cargar el alojamiento.",
+                );
             } finally {
                 setCargando(false);
             }
@@ -70,264 +96,484 @@ export default function DetalleAlojamientoPage() {
 
     if (cargando) {
         return (
-            <main
-                style={{
-                    minHeight: "100vh",
-                    padding: "60px 36px",
-                    fontFamily: "Arial, sans-serif",
-                }}
-            >
-                <p>Cargando alojamiento...</p>
+            <main className="min-h-screen bg-slate-50 px-4 py-16 sm:px-6 lg:px-8">
+                <div className="mx-auto max-w-7xl">
+                    <div className="animate-pulse space-y-6">
+                        <div className="h-4 w-24 rounded bg-slate-200" />
+
+                        <div className="h-10 w-2/3 rounded bg-slate-200" />
+
+                        <div className="h-5 w-1/2 rounded bg-slate-200" />
+
+                        <div className="h-80 rounded-3xl bg-slate-200" />
+                    </div>
+                </div>
             </main>
         );
     }
 
     if (error || !propiedad) {
         return (
-            <main
-                style={{
-                    minHeight: "100vh",
-                    padding: "60px 36px",
-                    fontFamily: "Arial, sans-serif",
-                }}
-            >
-                <h1>Alojamiento no encontrado</h1>
-                <p>{error}</p>
+            <main className="flex min-h-screen items-center justify-center bg-slate-50 px-6">
+                <div className="max-w-md rounded-2xl border border-slate-200 bg-white p-8 text-center shadow-sm">
+                    <div
+                        className="mb-4 text-5xl"
+                        aria-hidden="true"
+                    >
+                        🏡
+                    </div>
+
+                    <h1 className="text-2xl font-bold text-slate-950">
+                        Alojamiento no encontrado
+                    </h1>
+
+                    <p className="mt-3 text-slate-600">
+                        {error ||
+                            "La propiedad solicitada no existe o ya no está disponible."}
+                    </p>
+
+                    <Link
+                        href="/alojamientos"
+                        className="mt-6 inline-flex rounded-xl bg-teal-700 px-5 py-3 font-semibold text-white transition hover:bg-teal-800"
+                    >
+                        Volver a alojamientos
+                    </Link>
+                </div>
             </main>
         );
     }
 
-    const caracteristicas = [
-        propiedad.piscina && "Piscina",
-        propiedad.jacuzzi && "Jacuzzi",
-        propiedad.wifi && "WiFi",
-        propiedad.parqueadero && "Parqueadero",
-        propiedad.asador && "Asador",
-        propiedad.aceptaMascotas && "Acepta mascotas",
-    ].filter(Boolean);
+    const caracteristicas: Caracteristica[] = [
+        propiedad.piscina && {
+            icono: "🏊",
+            nombre: "Piscina",
+        },
+        propiedad.jacuzzi && {
+            icono: "🛁",
+            nombre: "Jacuzzi",
+        },
+        propiedad.wifi && {
+            icono: "📶",
+            nombre: "WiFi",
+        },
+        propiedad.parqueadero && {
+            icono: "🚗",
+            nombre: "Parqueadero",
+        },
+        propiedad.asador && {
+            icono: "🔥",
+            nombre: "Asador",
+        },
+        propiedad.aceptaMascotas && {
+            icono: "🐾",
+            nombre: "Acepta mascotas",
+        },
+    ].filter(Boolean) as Caracteristica[];
+
+    /*
+     * ============================================================
+     * WHATSAPP
+     * ============================================================
+     *
+     * La API puede devolver whatsapp, telefono, ambos o ninguno.
+     * Por eso primero obtenemos el valor disponible y verificamos
+     * que exista antes de utilizar replace().
+     */
+    const contactoWhatsApp =
+        propiedad.propietario.whatsapp?.trim() ||
+        propiedad.propietario.telefono?.trim() ||
+        "";
+
+    const whatsappNumero = contactoWhatsApp.replace(/\D/g, "");
+
+    const whatsappNumeroCompleto = whatsappNumero
+        ? whatsappNumero.startsWith("57")
+            ? whatsappNumero
+            : `57${whatsappNumero}`
+        : "";
+
+    const whatsappUrl = whatsappNumeroCompleto
+        ? `https://wa.me/${whatsappNumeroCompleto}`
+        : null;
+
+    /*
+     * ============================================================
+     * HUÉSPEDES
+     * ============================================================
+     */
+    const cantidadHuespedesInicial =
+        propiedad.capacidad >= 2 ? 2 : 1;
+
+    /*
+     * ============================================================
+     * PRECIO
+     * ============================================================
+     */
+    const precioFormateado = Number(
+        propiedad.precioNoche,
+    ).toLocaleString("es-CO");
 
     return (
-        <main
-            style={{
-                minHeight: "100vh",
-                background: "#ffffff",
-                padding: "40px 36px 80px",
-                fontFamily: "Arial, sans-serif",
-            }}
-        >
-            <div
-                style={{
-                    maxWidth: "1200px",
-                    margin: "0 auto",
-                }}
-            >
+        <main className="min-h-screen bg-slate-50">
+            <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8 lg:py-10">
+
+                {/* VOLVER */}
+                <Link
+                    href="/alojamientos"
+                    className="mb-6 inline-flex items-center gap-2 text-sm font-semibold text-slate-600 transition hover:text-teal-700"
+                >
+                    <span aria-hidden="true">←</span>
+                    Volver a alojamientos
+                </Link>
+
                 {/* ENCABEZADO */}
-                <div style={{ marginBottom: "30px" }}>
-                    <p
-                        style={{
-                            margin: 0,
-                            color: "#087f78",
-                            fontWeight: 700,
-                            textTransform: "uppercase",
-                            fontSize: "14px",
-                        }}
-                    >
+                <header className="mb-8">
+                    <p className="text-sm font-bold uppercase tracking-[0.18em] text-teal-700">
                         {propiedad.tipoPropiedad.nombre}
                     </p>
 
-                    <h1
-                        style={{
-                            margin: "8px 0",
-                            fontSize: "42px",
-                            color: "#07162d",
-                        }}
-                    >
+                    <h1 className="mt-2 text-3xl font-bold tracking-tight text-slate-950 sm:text-4xl lg:text-5xl">
                         {propiedad.nombre}
                     </h1>
 
-                    <p
-                        style={{
-                            margin: 0,
-                            color: "#64748b",
-                            fontSize: "18px",
-                        }}
-                    >
-                        {propiedad.municipio.nombre}
-                        {propiedad.direccion
-                            ? ` · ${propiedad.direccion}`
-                            : ""}
-                    </p>
-                </div>
+                    <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-2 text-sm text-slate-600 sm:text-base">
+                        <span>
+                            📍 {propiedad.municipio.nombre}
+                        </span>
 
-                {/* IMAGEN TEMPORAL */}
-                <div
-                    style={{
-                        height: "420px",
-                        borderRadius: "20px",
-                        background: "#effcfb",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        fontSize: "80px",
-                        marginBottom: "40px",
-                    }}
+                        {propiedad.direccion && (
+                            <>
+                                <span className="hidden text-slate-300 sm:inline">
+                                    •
+                                </span>
+
+                                <span>
+                                    {propiedad.direccion}
+                                </span>
+                            </>
+                        )}
+                    </div>
+                </header>
+
+                {/* GALERÍA TEMPORAL */}
+                <section
+                    className="mb-10 overflow-hidden rounded-3xl"
+                    aria-label="Galería del alojamiento"
                 >
-                    🏡
-                </div>
+                    <div className="grid min-h-[320px] gap-2 sm:min-h-[420px] md:grid-cols-2">
 
-                {/* CONTENIDO */}
-                <div
-                    style={{
-                        display: "grid",
-                        gridTemplateColumns: "2fr 1fr",
-                        gap: "50px",
-                        alignItems: "start",
-                    }}
-                >
-                    {/* INFORMACIÓN */}
-                    <section>
-                        <h2
-                            style={{
-                                fontSize: "28px",
-                                color: "#07162d",
-                                marginBottom: "15px",
-                            }}
-                        >
-                            Sobre este alojamiento
-                        </h2>
-
-                        <p
-                            style={{
-                                color: "#475569",
-                                fontSize: "17px",
-                                lineHeight: 1.7,
-                            }}
-                        >
-                            {propiedad.descripcion}
-                        </p>
-
-                        {/* CAPACIDAD */}
                         <div
-                            style={{
-                                display: "grid",
-                                gridTemplateColumns:
-                                    "repeat(3, minmax(0, 1fr))",
-                                gap: "15px",
-                                marginTop: "30px",
-                            }}
+                            className="flex items-center justify-center bg-teal-100 text-8xl md:row-span-2"
+                            aria-label="Imagen principal temporal"
                         >
-                            <div>
-                                <strong>👥 Capacidad</strong>
-                                <p>{propiedad.capacidad} personas</p>
-                            </div>
-
-                            <div>
-                                <strong>🛏️ Habitaciones</strong>
-                                <p>{propiedad.habitaciones}</p>
-                            </div>
-
-                            <div>
-                                <strong>🚿 Baños</strong>
-                                <p>{propiedad.banos}</p>
-                            </div>
+                            🏡
                         </div>
+
+                        <div
+                            className="hidden items-center justify-center bg-teal-50 text-5xl md:flex"
+                            aria-label="Imagen secundaria temporal"
+                        >
+                            🌳
+                        </div>
+
+                        <div
+                            className="hidden items-center justify-center bg-emerald-50 text-5xl md:flex"
+                            aria-label="Imagen secundaria temporal"
+                        >
+                            🌿
+                        </div>
+
+                    </div>
+                </section>
+
+                {/* CONTENIDO PRINCIPAL */}
+                <div className="grid gap-10 lg:grid-cols-[minmax(0,2fr)_minmax(320px,1fr)]">
+
+                    {/* COLUMNA IZQUIERDA */}
+                    <div className="space-y-10">
+
+                        {/* INFORMACIÓN PRINCIPAL */}
+                        <section>
+                            <div className="border-b border-slate-200 pb-6">
+                                <h2 className="text-2xl font-bold text-slate-950 sm:text-3xl">
+                                    Sobre este alojamiento
+                                </h2>
+
+                                <p className="mt-4 text-base leading-8 text-slate-600 sm:text-lg">
+                                    {propiedad.descripcion}
+                                </p>
+                            </div>
+
+                            {/* DATOS */}
+                            <div className="grid grid-cols-1 divide-y divide-slate-200 py-6 sm:grid-cols-3 sm:divide-x sm:divide-y-0">
+
+                                <div className="py-4 sm:px-5 sm:py-2">
+                                    <p className="text-sm font-medium text-slate-500">
+                                        Capacidad
+                                    </p>
+
+                                    <p className="mt-1 text-lg font-bold text-slate-950">
+                                        👥 {propiedad.capacidad} personas
+                                    </p>
+                                </div>
+
+                                <div className="py-4 sm:px-5 sm:py-2">
+                                    <p className="text-sm font-medium text-slate-500">
+                                        Habitaciones
+                                    </p>
+
+                                    <p className="mt-1 text-lg font-bold text-slate-950">
+                                        🛏️ {propiedad.habitaciones}
+                                    </p>
+                                </div>
+
+                                <div className="py-4 sm:px-5 sm:py-2">
+                                    <p className="text-sm font-medium text-slate-500">
+                                        Baños
+                                    </p>
+
+                                    <p className="mt-1 text-lg font-bold text-slate-950">
+                                        🚿 {propiedad.banos}
+                                    </p>
+                                </div>
+
+                            </div>
+                        </section>
 
                         {/* CARACTERÍSTICAS */}
-                        <h2
-                            style={{
-                                fontSize: "28px",
-                                color: "#07162d",
-                                marginTop: "40px",
-                            }}
-                        >
-                            Características
-                        </h2>
+                        <section className="border-t border-slate-200 pt-8">
+                            <h2 className="text-2xl font-bold text-slate-950">
+                                Características
+                            </h2>
 
-                        <div
-                            style={{
-                                display: "grid",
-                                gridTemplateColumns:
-                                    "repeat(2, minmax(0, 1fr))",
-                                gap: "12px",
-                                marginTop: "20px",
-                            }}
-                        >
-                            {caracteristicas.map((caracteristica) => (
-                                <div
-                                    key={String(caracteristica)}
-                                    style={{
-                                        padding: "15px",
-                                        border: "1px solid #e2e8f0",
-                                        borderRadius: "10px",
-                                        color: "#334155",
-                                    }}
-                                >
-                                    ✓ {caracteristica}
+                            {caracteristicas.length > 0 ? (
+                                <div className="mt-6 grid gap-3 sm:grid-cols-2">
+
+                                    {caracteristicas.map(
+                                        (caracteristica) => (
+                                            <div
+                                                key={
+                                                    caracteristica.nombre
+                                                }
+                                                className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-white p-4"
+                                            >
+                                                <span
+                                                    className="text-2xl"
+                                                    aria-hidden="true"
+                                                >
+                                                    {
+                                                        caracteristica.icono
+                                                    }
+                                                </span>
+
+                                                <span className="font-medium text-slate-700">
+                                                    {
+                                                        caracteristica.nombre
+                                                    }
+                                                </span>
+                                            </div>
+                                        ),
+                                    )}
+
                                 </div>
-                            ))}
-                        </div>
-                    </section>
+                            ) : (
+                                <p className="mt-5 text-slate-500">
+                                    Esta propiedad no tiene
+                                    características registradas.
+                                </p>
+                            )}
+                        </section>
+
+                        {/* PROPIETARIO */}
+                        <section className="border-t border-slate-200 pt-8">
+                            <h2 className="text-2xl font-bold text-slate-950">
+                                Tu anfitrión
+                            </h2>
+
+                            <div className="mt-5 flex flex-col gap-5 rounded-2xl border border-slate-200 bg-white p-5 sm:flex-row sm:items-center sm:justify-between">
+
+                                <div className="flex items-center gap-4">
+
+                                    <div
+                                        className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-teal-100 text-xl font-bold text-teal-800"
+                                        aria-hidden="true"
+                                    >
+                                        {propiedad.propietario.nombre
+                                            .charAt(0)
+                                            .toUpperCase()}
+                                    </div>
+
+                                    <div>
+                                        <p className="font-bold text-slate-950">
+                                            {
+                                                propiedad.propietario
+                                                    .nombre
+                                            }{" "}
+                                            {
+                                                propiedad.propietario
+                                                    .apellido
+                                            }
+                                        </p>
+
+                                        <p className="mt-1 text-sm text-slate-500">
+                                            Propietario de la propiedad
+                                        </p>
+                                    </div>
+
+                                </div>
+
+                                {whatsappUrl ? (
+                                    <a
+                                        href={whatsappUrl}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="inline-flex items-center justify-center gap-2 rounded-xl bg-green-600 px-5 py-3 font-semibold text-white transition hover:bg-green-700"
+                                    >
+                                        💬 Contactar por WhatsApp
+                                    </a>
+                                ) : (
+                                    <span className="text-sm text-slate-500">
+                                        Contacto no disponible
+                                    </span>
+                                )}
+
+                            </div>
+                        </section>
+
+                        {/* UBICACIÓN */}
+                        <section className="border-t border-slate-200 pt-8">
+                            <h2 className="text-2xl font-bold text-slate-950">
+                                Ubicación
+                            </h2>
+
+                            <div className="mt-5 rounded-2xl border border-slate-200 bg-white p-6">
+                                <p className="text-lg font-semibold text-slate-950">
+                                    📍 {propiedad.municipio.nombre}
+                                </p>
+
+                                {propiedad.direccion && (
+                                    <p className="mt-2 text-slate-600">
+                                        {propiedad.direccion}
+                                    </p>
+                                )}
+
+                                <div className="mt-5 flex h-48 items-center justify-center rounded-xl bg-slate-100 text-slate-500">
+                                    Mapa de ubicación
+                                </div>
+                            </div>
+                        </section>
+
+                    </div>
 
                     {/* TARJETA DE RESERVA */}
-                    <aside
-                        style={{
-                            border: "1px solid #e2e8f0",
-                            borderRadius: "18px",
-                            padding: "25px",
-                            boxShadow:
-                                "0 10px 30px rgba(15, 23, 42, 0.08)",
-                            position: "sticky",
-                            top: "25px",
-                        }}
-                    >
-                        <p
-                            style={{
-                                margin: 0,
-                                color: "#64748b",
-                            }}
-                        >
-                            Desde
-                        </p>
+                    <aside className="lg:sticky lg:top-6 lg:self-start">
 
-                        <div
-                            style={{
-                                marginTop: "5px",
-                                fontSize: "30px",
-                                fontWeight: 700,
-                                color: "#07162d",
-                            }}
-                        >
-                            ${Number(propiedad.precioNoche).toLocaleString(
-                                "es-CO",
-                            )}
+                        <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-lg">
+
+                            <p className="text-sm text-slate-500">
+                                Desde
+                            </p>
+
+                            <div className="mt-1 flex items-baseline gap-2">
+                                <span className="text-3xl font-bold text-slate-950">
+                                    ${precioFormateado}
+                                </span>
+
+                                <span className="text-slate-500">
+                                    / noche
+                                </span>
+                            </div>
+
+                            <div className="my-6 border-t border-slate-200" />
+
+                            {/* FECHAS */}
+                            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2">
+
+                                <div>
+                                    <label
+                                        htmlFor="fechaEntrada"
+                                        className="mb-2 block text-sm font-semibold text-slate-700"
+                                    >
+                                        Entrada
+                                    </label>
+
+                                    <input
+                                        id="fechaEntrada"
+                                        type="date"
+                                        className="w-full rounded-xl border border-slate-300 px-3 py-3 text-sm outline-none transition focus:border-teal-600 focus:ring-2 focus:ring-teal-100"
+                                    />
+                                </div>
+
+                                <div>
+                                    <label
+                                        htmlFor="fechaSalida"
+                                        className="mb-2 block text-sm font-semibold text-slate-700"
+                                    >
+                                        Salida
+                                    </label>
+
+                                    <input
+                                        id="fechaSalida"
+                                        type="date"
+                                        className="w-full rounded-xl border border-slate-300 px-3 py-3 text-sm outline-none transition focus:border-teal-600 focus:ring-2 focus:ring-teal-100"
+                                    />
+                                </div>
+
+                            </div>
+
+                            {/* HUÉSPEDES */}
+                            <div className="mt-4">
+                                <label
+                                    htmlFor="huespedes"
+                                    className="mb-2 block text-sm font-semibold text-slate-700"
+                                >
+                                    Huéspedes
+                                </label>
+
+                                <select
+                                    id="huespedes"
+                                    defaultValue={
+                                        cantidadHuespedesInicial
+                                    }
+                                    className="w-full rounded-xl border border-slate-300 bg-white px-3 py-3 text-sm outline-none transition focus:border-teal-600 focus:ring-2 focus:ring-teal-100"
+                                >
+                                    {Array.from(
+                                        {
+                                            length: propiedad.capacidad,
+                                        },
+                                        (_, index) => index + 1,
+                                    ).map((cantidad) => (
+                                        <option
+                                            key={cantidad}
+                                            value={cantidad}
+                                        >
+                                            {cantidad}{" "}
+                                            {cantidad === 1
+                                                ? "huésped"
+                                                : "huéspedes"}
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
+
+                            {/* RESERVAR */}
+                            <button
+                                type="button"
+                                className="mt-6 w-full rounded-xl bg-teal-700 px-5 py-4 font-bold text-white transition hover:bg-teal-800"
+                            >
+                                Reservar alojamiento
+                            </button>
+
+                            <p className="mt-4 text-center text-xs leading-5 text-slate-500">
+                                Las fechas y el valor total se
+                                calcularán antes de confirmar la
+                                reserva.
+                            </p>
+
                         </div>
 
-                        <p
-                            style={{
-                                marginTop: "4px",
-                                color: "#64748b",
-                            }}
-                        >
-                            por noche
-                        </p>
-
-                        <button
-                            style={{
-                                width: "100%",
-                                marginTop: "25px",
-                                padding: "15px",
-                                border: "none",
-                                borderRadius: "10px",
-                                background: "#087f78",
-                                color: "#ffffff",
-                                fontSize: "16px",
-                                fontWeight: 700,
-                                cursor: "pointer",
-                            }}
-                        >
-                            Reservar alojamiento
-                        </button>
                     </aside>
+
                 </div>
             </div>
         </main>
