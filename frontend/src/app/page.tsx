@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 export default function Home() {
   return (
     <main className="min-h-screen bg-white">
@@ -7,7 +9,7 @@ export default function Home() {
       <header className="border-b border-reservago-border bg-white">
         <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-5 lg:px-8">
           {/* Logo */}
-          <a
+          <Link
             href="/"
             className="flex items-center gap-2"
             aria-label="ReservaGo - Inicio"
@@ -19,7 +21,7 @@ export default function Home() {
             <span className="text-2xl font-bold tracking-tight text-slate-900">
               Reserva<span className="text-reservago-primary">Go</span>
             </span>
-          </a>
+          </Link>
 
           {/* Navegación */}
           <nav className="hidden items-center gap-8 md:flex">
@@ -145,16 +147,21 @@ export default function Home() {
                   Huéspedes
                 </label>
 
-                <input
+                <select
                   id="huespedes"
-                  type="number"
-                  min="1"
-                  placeholder="2"
-                  className="mt-1 w-full border-none bg-transparent text-sm text-slate-900 outline-none placeholder:text-slate-400"
-                />
+                  className="mt-1 w-full border-none bg-transparent text-sm text-slate-900 outline-none"
+                  defaultValue="2"
+                >
+                  <option value="1">1 huésped</option>
+                  <option value="2">2 huéspedes</option>
+                  <option value="3">3 huéspedes</option>
+                  <option value="4">4 huéspedes</option>
+                  <option value="5">5 huéspedes</option>
+                  <option value="6">6 huéspedes</option>
+                </select>
               </div>
 
-              {/* Buscar */}
+              {/* Botón buscar */}
               <button
                 type="button"
                 className="rounded-xl bg-reservago-primary px-6 py-3 font-semibold text-white transition hover:bg-reservago-primary-dark"
@@ -167,52 +174,51 @@ export default function Home() {
       </section>
 
       {/* ============================================================
-          ALOJAMIENTOS DESTACADOS
+          ALOJAMIENTOS
           ============================================================ */}
-      <section
-        id="alojamientos"
-        className="mx-auto max-w-7xl px-6 py-20 lg:px-8"
-      >
-        <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
-          <div>
-            <p className="text-sm font-bold uppercase tracking-wider text-reservago-primary">
-              Explora
-            </p>
+      <section id="alojamientos">
+        <div className="mx-auto max-w-7xl px-6 py-20 lg:px-8">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+            <div>
+              <p className="text-sm font-bold uppercase tracking-wider text-reservago-primary">
+                Explora
+              </p>
 
-            <h2 className="mt-2 text-3xl font-bold tracking-tight text-slate-900">
-              Alojamientos destacados
-            </h2>
+              <h2 className="mt-2 text-3xl font-bold tracking-tight text-slate-900">
+                Alojamientos destacados
+              </h2>
 
-            <p className="mt-3 text-slate-600">
-              Próximamente podrás explorar propiedades disponibles en
-              diferentes destinos de Antioquia.
-            </p>
+              <p className="mt-3 max-w-2xl text-slate-600">
+                Encuentra espacios pensados para descansar, compartir y
+                disfrutar de Antioquia.
+              </p>
+            </div>
+
+            <button
+              type="button"
+              className="self-start text-sm font-semibold text-reservago-primary transition hover:text-reservago-primary-dark sm:self-auto"
+            >
+              Ver todos →
+            </button>
           </div>
 
-          <button
-            type="button"
-            className="self-start text-sm font-semibold text-reservago-primary transition hover:text-reservago-primary-dark sm:self-auto"
-          >
-            Ver todos →
-          </button>
-        </div>
+          {/* Tarjetas temporales */}
+          <div className="mt-10 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+            <PropertyPlaceholder
+              title="Fincas campestres"
+              description="Espacios ideales para descansar y disfrutar de la naturaleza."
+            />
 
-        {/* Tarjetas temporales */}
-        <div className="mt-10 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-          <PropertyPlaceholder
-            title="Fincas campestres"
-            description="Espacios ideales para descansar y disfrutar de la naturaleza."
-          />
+            <PropertyPlaceholder
+              title="Casas de descanso"
+              description="Alojamientos para compartir momentos especiales con familia y amigos."
+            />
 
-          <PropertyPlaceholder
-            title="Casas de descanso"
-            description="Alojamientos para compartir momentos especiales con familia y amigos."
-          />
-
-          <PropertyPlaceholder
-            title="Apartamentos"
-            description="Opciones cómodas para tus viajes y escapadas."
-          />
+            <PropertyPlaceholder
+              title="Apartamentos"
+              description="Opciones cómodas para tus viajes y escapadas."
+            />
+          </div>
         </div>
       </section>
 
@@ -270,7 +276,7 @@ export default function Home() {
               </p>
 
               <h2 className="mt-3 text-3xl font-bold tracking-tight sm:text-4xl">
-                Publica tu propiedad en ReservaGo
+                Publica tu alojamiento en ReservaGo
               </h2>
 
               <p className="mt-4 text-base leading-7 text-teal-50">

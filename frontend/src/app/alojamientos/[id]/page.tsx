@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { useParams } from "next/navigation";
+//import { useParams, useRouter } from "next/navigation";
 
 type Propiedad = {
     id: number;
@@ -49,13 +49,52 @@ type Caracteristica = {
     nombre: string;
 };
 
+type ReservationResponse = {
+    id?: number;
+    message?: string;
+};
+
 export default function DetalleAlojamientoPage() {
     const params = useParams<{ id: string }>();
+    //const router = useRouter();
+
     const id = params.id;
 
-    const [propiedad, setPropiedad] = useState<Propiedad | null>(null);
+    const [propiedad, setPropiedad] =
+        useState<Propiedad | null>(null);
+
     const [cargando, setCargando] = useState(true);
     const [error, setError] = useState("");
+
+    /*
+     * ============================================================
+     * RESERVA
+     * ============================================================
+     */
+
+    const [fechaEntrada, setFechaEntrada] =
+        useState("");
+
+    const [fechaSalida, setFechaSalida] =
+        useState("");
+
+    const [cantidadHuespedes, setCantidadHuespedes] =
+        useState(1);
+
+    const [reservando, setReservando] =
+        useState(false);
+
+    const [mensajeReserva, setMensajeReserva] =
+        useState("");
+
+    const [errorReserva, setErrorReserva] =
+        useState("");
+
+    /*
+     * ============================================================
+     * OBTENER ALOJAMIENTO
+     * ============================================================
+     */
 
     useEffect(() => {
         if (!id) {
@@ -77,9 +116,15 @@ export default function DetalleAlojamientoPage() {
                     );
                 }
 
-                const data: Propiedad = await response.json();
+                const data: Propiedad =
+                    await response.json();
 
                 setPropiedad(data);
+
+                /*
+                 * Por defecto seleccionamos 1 huésped.
+                 */
+                setCantidadHuespedes(1);
             } catch (err) {
                 console.error(err);
 
@@ -93,6 +138,230 @@ export default function DetalleAlojamientoPage() {
 
         obtenerPropiedad();
     }, [id]);
+
+    /*
+     * ============================================================
+     * CREAR RESERVA
+     * ============================================================
+     */
+
+    const manejarReserva = async () => {
+        setMensajeReserva("");
+        setErrorReserva("");
+
+        /*
+         * --------------------------------------------------------
+         * VALIDAR ALOJAMIENTO
+         * --------------------------------------------------------
+         */
+
+        if (!propiedad) {
+            setErrorReserva(
+                "No fue posible identificar el alojamiento.",
+            );
+
+            return;
+        }
+
+        /*
+         * --------------------------------------------------------
+         * VALIDAR SESIÓN
+         * --------------------------------------------------------
+         */
+
+        const token =
+            localStorage.getItem("reservago_token");
+
+        if (!token) {
+            setErrorReserva(
+                "Debes iniciar sesión para realizar una reserva.",
+            );
+
+            return;
+        }
+
+        /*
+         * --------------------------------------------------------
+         * VALIDAR FECHA DE ENTRADA
+         * --------------------------------------------------------
+         */
+
+        if (!fechaEntrada) {
+            setErrorReserva(
+                "Selecciona la fecha de entrada.",
+            );
+
+            return;
+        }
+
+        /*
+         * --------------------------------------------------------
+         * VALIDAR FECHA DE SALIDA
+         * --------------------------------------------------------
+         */
+
+        if (!fechaSalida) {
+            setErrorReserva(
+                "Selecciona la fecha de salida.",
+            );
+
+            return;
+        }
+
+        /*
+         * --------------------------------------------------------
+         * VALIDAR ORDEN DE FECHAS
+         * --------------------------------------------------------
+         */
+
+        const entrada = new Date(
+            `${fechaEntrada}T00:00:00`,
+        );
+
+        const salida = new Date(
+            `${fechaSalida}T00:00:00`,
+        );
+
+        if (salida <= entrada) {
+            setErrorReserva(
+                "La fecha de salida debe ser posterior a la fecha de entrada.",
+            );
+
+            return;
+        }
+
+        /*
+         * --------------------------------------------------------
+         * VALIDAR CANTIDAD DE HUÉSPEDES
+         * --------------------------------------------------------
+         */
+
+        if (
+            cantidadHuespedes < 1 ||
+            cantidadHuespedes > propiedad.capacidad
+        ) {
+            setErrorReserva(
+                `La cantidad de huéspedes debe estar entre 1 y ${propiedad.capacidad}.`,
+            );
+
+            return;
+        }
+
+        try {
+            setReservando(true);
+
+            /*
+             * ----------------------------------------------------
+             * ENVIAR RESERVA AL BACKEND
+             * ----------------------------------------------------
+             *
+             * El backend obtiene automáticamente el usuarioId
+             * desde el JWT mediante req.user.id.
+             *
+             * Por eso NO enviamos usuarioId desde el frontend.
+             */
+
+            const response = await fetch(
+                "http://localhost:3000/reservations",
+                {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                        Authorization: `Bearer ${token}`,
+                    },
+                    body: JSON.stringify({
+                        fechaEntrada,
+                        fechaSalida,
+                        cantidadPersonas:
+                            cantidadHuespedes,
+                        propiedadId: propiedad.id,
+                    }),
+                },
+            );
+
+            let data: ReservationResponse = {};
+
+            try {
+                data = await response.json();
+            } catch {
+                data = {};
+            }
+
+            /*
+             * ----------------------------------------------------
+             * ERROR DEL BACKEND
+             * ----------------------------------------------------
+             */
+
+            if (!response.ok) {
+                if (response.status === 401) {
+                    localStorage.removeItem(
+                        "reservago_token",
+                    );
+
+                    localStorage.removeItem(
+                        "reservago_usuario",
+                    );
+
+                    setErrorReserva(
+                        "Tu sesión ha expirado. Inicia sesión nuevamente.",
+                    );
+
+                    return;
+                }
+
+                throw new Error(
+                    data.message ||
+                        "No fue posible crear la reserva.",
+                );
+            }
+
+            /*
+             * ----------------------------------------------------
+             * RESERVA EXITOSA
+             * ----------------------------------------------------
+             */
+
+            setMensajeReserva(
+                "¡Reserva creada correctamente!",
+            );
+
+            /*
+             * Limpiamos las fechas después de crear
+             * correctamente la reserva.
+             */
+
+            setFechaEntrada("");
+            setFechaSalida("");
+            setCantidadHuespedes(1);
+
+            console.log(
+                "Reserva creada correctamente:",
+                data,
+            );
+        } catch (err) {
+            console.error(
+                "Error al crear la reserva:",
+                err,
+            );
+
+            if (err instanceof Error) {
+                setErrorReserva(err.message);
+            } else {
+                setErrorReserva(
+                    "No fue posible crear la reserva. Intenta nuevamente.",
+                );
+            }
+        } finally {
+            setReservando(false);
+        }
+    };
+
+    /*
+     * ============================================================
+     * CARGANDO
+     * ============================================================
+     */
 
     if (cargando) {
         return (
@@ -111,6 +380,12 @@ export default function DetalleAlojamientoPage() {
             </main>
         );
     }
+
+    /*
+     * ============================================================
+     * ERROR / ALOJAMIENTO NO ENCONTRADO
+     * ============================================================
+     */
 
     if (error || !propiedad) {
         return (
@@ -143,6 +418,12 @@ export default function DetalleAlojamientoPage() {
         );
     }
 
+    /*
+     * ============================================================
+     * CARACTERÍSTICAS
+     * ============================================================
+     */
+
     const caracteristicas: Caracteristica[] = [
         propiedad.piscina && {
             icono: "🏊",
@@ -174,17 +455,15 @@ export default function DetalleAlojamientoPage() {
      * ============================================================
      * WHATSAPP
      * ============================================================
-     *
-     * La API puede devolver whatsapp, telefono, ambos o ninguno.
-     * Por eso primero obtenemos el valor disponible y verificamos
-     * que exista antes de utilizar replace().
      */
+
     const contactoWhatsApp =
         propiedad.propietario.whatsapp?.trim() ||
         propiedad.propietario.telefono?.trim() ||
         "";
 
-    const whatsappNumero = contactoWhatsApp.replace(/\D/g, "");
+    const whatsappNumero =
+        contactoWhatsApp.replace(/\D/g, "");
 
     const whatsappNumeroCompleto = whatsappNumero
         ? whatsappNumero.startsWith("57")
@@ -198,35 +477,51 @@ export default function DetalleAlojamientoPage() {
 
     /*
      * ============================================================
-     * HUÉSPEDES
-     * ============================================================
-     */
-    const cantidadHuespedesInicial =
-        propiedad.capacidad >= 2 ? 2 : 1;
-
-    /*
-     * ============================================================
      * PRECIO
      * ============================================================
      */
+
     const precioFormateado = Number(
         propiedad.precioNoche,
     ).toLocaleString("es-CO");
+
+    /*
+     * ============================================================
+     * FECHA MÍNIMA
+     * ============================================================
+     *
+     * Evita seleccionar fechas anteriores al día actual.
+     */
+
+    const fechaMinima = new Date()
+        .toISOString()
+        .split("T")[0];
+
+    /*
+     * ============================================================
+     * RENDER
+     * ============================================================
+     */
 
     return (
         <main className="min-h-screen bg-slate-50">
             <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8 lg:py-10">
 
                 {/* VOLVER */}
+
                 <Link
                     href="/alojamientos"
                     className="mb-6 inline-flex items-center gap-2 text-sm font-semibold text-slate-600 transition hover:text-teal-700"
                 >
-                    <span aria-hidden="true">←</span>
+                    <span aria-hidden="true">
+                        ←
+                    </span>
+
                     Volver a alojamientos
                 </Link>
 
                 {/* ENCABEZADO */}
+
                 <header className="mb-8">
                     <p className="text-sm font-bold uppercase tracking-[0.18em] text-teal-700">
                         {propiedad.tipoPropiedad.nombre}
@@ -256,6 +551,7 @@ export default function DetalleAlojamientoPage() {
                 </header>
 
                 {/* GALERÍA TEMPORAL */}
+
                 <section
                     className="mb-10 overflow-hidden rounded-3xl"
                     aria-label="Galería del alojamiento"
@@ -287,12 +583,15 @@ export default function DetalleAlojamientoPage() {
                 </section>
 
                 {/* CONTENIDO PRINCIPAL */}
+
                 <div className="grid gap-10 lg:grid-cols-[minmax(0,2fr)_minmax(320px,1fr)]">
 
                     {/* COLUMNA IZQUIERDA */}
+
                     <div className="space-y-10">
 
                         {/* INFORMACIÓN PRINCIPAL */}
+
                         <section>
                             <div className="border-b border-slate-200 pb-6">
                                 <h2 className="text-2xl font-bold text-slate-950 sm:text-3xl">
@@ -305,6 +604,7 @@ export default function DetalleAlojamientoPage() {
                             </div>
 
                             {/* DATOS */}
+
                             <div className="grid grid-cols-1 divide-y divide-slate-200 py-6 sm:grid-cols-3 sm:divide-x sm:divide-y-0">
 
                                 <div className="py-4 sm:px-5 sm:py-2">
@@ -341,6 +641,7 @@ export default function DetalleAlojamientoPage() {
                         </section>
 
                         {/* CARACTERÍSTICAS */}
+
                         <section className="border-t border-slate-200 pt-8">
                             <h2 className="text-2xl font-bold text-slate-950">
                                 Características
@@ -385,6 +686,7 @@ export default function DetalleAlojamientoPage() {
                         </section>
 
                         {/* PROPIETARIO */}
+
                         <section className="border-t border-slate-200 pt-8">
                             <h2 className="text-2xl font-bold text-slate-950">
                                 Tu anfitrión
@@ -423,14 +725,14 @@ export default function DetalleAlojamientoPage() {
                                 </div>
 
                                 {whatsappUrl ? (
-                                    <a
+                                    <link
                                         href={whatsappUrl}
                                         target="_blank"
                                         rel="noopener noreferrer"
                                         className="inline-flex items-center justify-center gap-2 rounded-xl bg-green-600 px-5 py-3 font-semibold text-white transition hover:bg-green-700"
                                     >
                                         💬 Contactar por WhatsApp
-                                    </a>
+                                    </link>
                                 ) : (
                                     <span className="text-sm text-slate-500">
                                         Contacto no disponible
@@ -441,6 +743,7 @@ export default function DetalleAlojamientoPage() {
                         </section>
 
                         {/* UBICACIÓN */}
+
                         <section className="border-t border-slate-200 pt-8">
                             <h2 className="text-2xl font-bold text-slate-950">
                                 Ubicación
@@ -466,6 +769,7 @@ export default function DetalleAlojamientoPage() {
                     </div>
 
                     {/* TARJETA DE RESERVA */}
+
                     <aside className="lg:sticky lg:top-6 lg:self-start">
 
                         <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-lg">
@@ -486,7 +790,52 @@ export default function DetalleAlojamientoPage() {
 
                             <div className="my-6 border-t border-slate-200" />
 
+                            {/* MENSAJE DE ÉXITO */}
+
+                            {mensajeReserva && (
+                                <div
+                                    className="mb-5 rounded-2xl border border-green-200 bg-green-50 p-4 text-sm leading-6 text-green-700"
+                                    role="status"
+                                >
+                                    <div className="flex gap-3">
+                                        <span
+                                            className="shrink-0 text-lg"
+                                            aria-hidden="true"
+                                        >
+                                            ✅
+                                        </span>
+
+                                        <p>
+                                            {mensajeReserva}
+                                        </p>
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* MENSAJE DE ERROR */}
+
+                            {errorReserva && (
+                                <div
+                                    className="mb-5 rounded-2xl border border-red-200 bg-red-50 p-4 text-sm leading-6 text-red-700"
+                                    role="alert"
+                                >
+                                    <div className="flex gap-3">
+                                        <span
+                                            className="shrink-0 text-lg"
+                                            aria-hidden="true"
+                                        >
+                                            ⚠️
+                                        </span>
+
+                                        <p>
+                                            {errorReserva}
+                                        </p>
+                                    </div>
+                                </div>
+                            )}
+
                             {/* FECHAS */}
+
                             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2">
 
                                 <div>
@@ -500,7 +849,23 @@ export default function DetalleAlojamientoPage() {
                                     <input
                                         id="fechaEntrada"
                                         type="date"
-                                        className="w-full rounded-xl border border-slate-300 px-3 py-3 text-sm outline-none transition focus:border-teal-600 focus:ring-2 focus:ring-teal-100"
+                                        min={fechaMinima}
+                                        value={fechaEntrada}
+                                        onChange={(evento) => {
+                                            setFechaEntrada(
+                                                evento.target.value,
+                                            );
+
+                                            setMensajeReserva(
+                                                "",
+                                            );
+
+                                            setErrorReserva(
+                                                "",
+                                            );
+                                        }}
+                                        disabled={reservando}
+                                        className="w-full rounded-xl border border-slate-300 px-3 py-3 text-sm outline-none transition focus:border-teal-600 focus:ring-2 focus:ring-teal-100 disabled:cursor-not-allowed disabled:bg-slate-100"
                                     />
                                 </div>
 
@@ -515,13 +880,33 @@ export default function DetalleAlojamientoPage() {
                                     <input
                                         id="fechaSalida"
                                         type="date"
-                                        className="w-full rounded-xl border border-slate-300 px-3 py-3 text-sm outline-none transition focus:border-teal-600 focus:ring-2 focus:ring-teal-100"
+                                        min={
+                                            fechaEntrada ||
+                                            fechaMinima
+                                        }
+                                        value={fechaSalida}
+                                        onChange={(evento) => {
+                                            setFechaSalida(
+                                                evento.target.value,
+                                            );
+
+                                            setMensajeReserva(
+                                                "",
+                                            );
+
+                                            setErrorReserva(
+                                                "",
+                                            );
+                                        }}
+                                        disabled={reservando}
+                                        className="w-full rounded-xl border border-slate-300 px-3 py-3 text-sm outline-none transition focus:border-teal-600 focus:ring-2 focus:ring-teal-100 disabled:cursor-not-allowed disabled:bg-slate-100"
                                     />
                                 </div>
 
                             </div>
 
                             {/* HUÉSPEDES */}
+
                             <div className="mt-4">
                                 <label
                                     htmlFor="huespedes"
@@ -532,16 +917,32 @@ export default function DetalleAlojamientoPage() {
 
                                 <select
                                     id="huespedes"
-                                    defaultValue={
-                                        cantidadHuespedesInicial
-                                    }
-                                    className="w-full rounded-xl border border-slate-300 bg-white px-3 py-3 text-sm outline-none transition focus:border-teal-600 focus:ring-2 focus:ring-teal-100"
+                                    value={cantidadHuespedes}
+                                    onChange={(evento) => {
+                                        setCantidadHuespedes(
+                                            Number(
+                                                evento.target
+                                                    .value,
+                                            ),
+                                        );
+
+                                        setMensajeReserva(
+                                            "",
+                                        );
+
+                                        setErrorReserva(
+                                            "",
+                                        );
+                                    }}
+                                    disabled={reservando}
+                                    className="w-full rounded-xl border border-slate-300 bg-white px-3 py-3 text-sm outline-none transition focus:border-teal-600 focus:ring-2 focus:ring-teal-100 disabled:cursor-not-allowed disabled:bg-slate-100"
                                 >
                                     {Array.from(
                                         {
                                             length: propiedad.capacidad,
                                         },
-                                        (_, index) => index + 1,
+                                        (_, index) =>
+                                            index + 1,
                                     ).map((cantidad) => (
                                         <option
                                             key={cantidad}
@@ -557,11 +958,25 @@ export default function DetalleAlojamientoPage() {
                             </div>
 
                             {/* RESERVAR */}
+
                             <button
                                 type="button"
-                                className="mt-6 w-full rounded-xl bg-teal-700 px-5 py-4 font-bold text-white transition hover:bg-teal-800"
+                                onClick={manejarReserva}
+                                disabled={reservando}
+                                className="mt-6 flex w-full items-center justify-center rounded-xl bg-teal-700 px-5 py-4 font-bold text-white transition hover:bg-teal-800 focus:outline-none focus:ring-2 focus:ring-teal-600 focus:ring-offset-2 disabled:cursor-not-allowed disabled:bg-teal-400"
                             >
-                                Reservar alojamiento
+                                {reservando ? (
+                                    <>
+                                        <span
+                                            className="mr-3 h-5 w-5 animate-spin rounded-full border-2 border-white/30 border-t-white"
+                                            aria-hidden="true"
+                                        />
+
+                                        Creando reserva...
+                                    </>
+                                ) : (
+                                    "Reservar alojamiento"
+                                )}
                             </button>
 
                             <p className="mt-4 text-center text-xs leading-5 text-slate-500">
