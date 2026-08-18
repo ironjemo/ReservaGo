@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-//import { useParams, useRouter } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 
 type Propiedad = {
     id: number;
@@ -312,7 +312,7 @@ export default function DetalleAlojamientoPage() {
 
                 throw new Error(
                     data.message ||
-                        "No fue posible crear la reserva.",
+                    "No fue posible crear la reserva.",
                 );
             }
 
@@ -725,14 +725,14 @@ export default function DetalleAlojamientoPage() {
                                 </div>
 
                                 {whatsappUrl ? (
-                                    <link
+                                    <a
                                         href={whatsappUrl}
                                         target="_blank"
                                         rel="noopener noreferrer"
                                         className="inline-flex items-center justify-center gap-2 rounded-xl bg-green-600 px-5 py-3 font-semibold text-white transition hover:bg-green-700"
                                     >
                                         💬 Contactar por WhatsApp
-                                    </link>
+                                    </a>
                                 ) : (
                                     <span className="text-sm text-slate-500">
                                         Contacto no disponible
